@@ -110,6 +110,7 @@ export default function ChatPage() {
   const voiceAssistantStateRef = useRef(voiceAssistantState);
   const isMicPausedRef = useRef(false);
   const isInterruptedRef = useRef(false);
+  const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
     isTwoWayModeRef.current = isTwoWayMode;
@@ -558,10 +559,9 @@ export default function ChatPage() {
     
     // Explicit SpeechSynthesis unlock for Chrome/Safari autoplay policies
     if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
       window.speechSynthesis.resume();
-      const unlockUtterance = new SpeechSynthesisUtterance("");
-      unlockUtterance.volume = 0;
+      const unlockUtterance = new SpeechSynthesisUtterance(" ");
+      unlockUtterance.volume = 0.01;
       window.speechSynthesis.speak(unlockUtterance);
     }
     
@@ -608,7 +608,10 @@ export default function ChatPage() {
   // High-performance browser speech synthesis (Instant load & premium accents)
   const speakText = (text: string, onEnd?: () => void, isAsync: boolean = false) => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel(); // Cancel any delayed speaking instantly
+      // Only call cancel if actively speaking/pending to prevent Chrome/Safari idle stuck issues
+      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+        window.speechSynthesis.cancel(); 
+      }
       window.speechSynthesis.resume(); // Force-resume in case synthesis is in a stuck paused state!
     }
     
@@ -635,28 +638,41 @@ export default function ChatPage() {
       utterance.pitch = 1.0; // Pleasant human-like tone
       utterance.rate = 1.12; // Extremely natural, human conversational speed
       
+      // Store reference persistently to completely prevent Chrome garbage-collection silent cutoff bugs!
+      activeUtteranceRef.current = utterance;
+      
       const setVoice = () => {
           const voices = window.speechSynthesis.getVoices();
+          
+          // Separate local offline-capable system voices from online cloud ones
+          const localVoices = voices.filter(v => v.localService === true);
+          const voicePool = localVoices.length > 0 ? localVoices : voices;
           
           if (voiceGender === "female") {
               // Prioritize premium Indian English/local female voices (Veena, Lekha, Aditi, Google India, en-IN) for flawless pronunciation of transliterated text
               const femaleNames = ["veena", "lekha", "aditi", "samantha", "heera", "monica", "victoria", "karen", "tessa", "moira", "fiona", "ava", "allison", "female", "zira", "hazel"];
-              let selectedVoice = voices.find(v => 
+              // 1. Try local en-IN female
+              let selectedVoice = voicePool.find(v => 
                 v.lang.toLowerCase().startsWith("en-in") && 
                 femaleNames.some(name => v.name.toLowerCase().includes(name))
               );
+              // 2. Try any local female
+              if (!selectedVoice) {
+                selectedVoice = voicePool.find(v => femaleNames.some(name => v.name.toLowerCase().includes(name)));
+              }
+              // 3. Try any local 'in' language voice
+              if (!selectedVoice) {
+                selectedVoice = voicePool.find(v => v.lang.toLowerCase().includes("in"));
+              }
+              // 4. Try any en- female voice
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.lang.startsWith("en-") && femaleNames.some(name => v.name.toLowerCase().includes(name)));
+              }
+              // 5. Try any female voice
               if (!selectedVoice) {
                 selectedVoice = voices.find(v => femaleNames.some(name => v.name.toLowerCase().includes(name)));
               }
-              if (!selectedVoice) {
-                selectedVoice = voices.find(v => v.lang.toLowerCase().includes("in"));
-              }
-              if (!selectedVoice) {
-                selectedVoice = voices.find(v => v.name.toLowerCase().includes("female"));
-              }
-              if (!selectedVoice) {
-                selectedVoice = voices.find(v => v.lang.startsWith("en-"));
-              }
+              
               if (selectedVoice) {
                 utterance.voice = selectedVoice;
                 utterance.lang = selectedVoice.lang;
@@ -666,22 +682,28 @@ export default function ChatPage() {
           } else {
               // Prioritize premium Indian English/local male voices (Rishi, Ravi, Google India, en-IN)
               const maleNames = ["rishi", "ravi", "david", "daniel", "aaron", "alex", "fred", "guy", "male", "george", "james"];
-              let selectedVoice = voices.find(v => 
+              // 1. Try local en-IN male
+              let selectedVoice = voicePool.find(v => 
                 v.lang.toLowerCase().startsWith("en-in") && 
                 maleNames.some(name => v.name.toLowerCase().includes(name))
               );
+              // 2. Try any local male
+              if (!selectedVoice) {
+                selectedVoice = voicePool.find(v => maleNames.some(name => v.name.toLowerCase().includes(name)));
+              }
+              // 3. Try any local 'in' language voice
+              if (!selectedVoice) {
+                selectedVoice = voicePool.find(v => v.lang.toLowerCase().includes("in"));
+              }
+              // 4. Try any en- male voice
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.lang.startsWith("en-") && maleNames.some(name => v.name.toLowerCase().includes(name)));
+              }
+              // 5. Try any male voice
               if (!selectedVoice) {
                 selectedVoice = voices.find(v => maleNames.some(name => v.name.toLowerCase().includes(name)));
               }
-              if (!selectedVoice) {
-                selectedVoice = voices.find(v => v.lang.toLowerCase().includes("in"));
-              }
-              if (!selectedVoice) {
-                selectedVoice = voices.find(v => v.name.toLowerCase().includes("male"));
-              }
-              if (!selectedVoice) {
-                selectedVoice = voices.find(v => v.lang.startsWith("en-"));
-              }
+              
               if (selectedVoice) {
                 utterance.voice = selectedVoice;
                 utterance.lang = selectedVoice.lang;
@@ -703,6 +725,7 @@ export default function ChatPage() {
       const triggerEnd = () => {
         if (hasEnded) return;
         hasEnded = true;
+        activeUtteranceRef.current = null; // Clear persistent ref on end to allow garbage collection
         if (speechTimeout) {
           clearTimeout(speechTimeout);
         }
