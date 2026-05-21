@@ -1,0 +1,45 @@
+# Root-level .gitignore for TAXA Sovereign Workspace
+
+# Node.js / Next.js (Frontend)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Python / FastAPI (Backend)
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.pytest_cache/
+backend/models/__pycache__/
+backend/agent/__pycache__/
+backend/api/__pycache__/
+backend/core/__pycache__/
+
+# Database
+backend/*.db
+backend/*.db-journal
+
+# Environment secrets (DO NOT COMMIT API KEYS OR PASSWORDS)
+.env
+.env*
+backend/.env
+frontend/.env
+frontend/.env*
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
