@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
+from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -191,17 +191,69 @@ class ChatRequestWithUser(ChatRequest):
     attached_file_content: Optional[str] = None
     attached_file_name: Optional[str] = None
 
+def update_user_memory_task(user_id: int, user_msg: str, assistant_reply: str):
+    db_session = db.SessionLocal()
+    try:
+        memory_rec = db_session.query(db.UserMemoryModel).filter(db.UserMemoryModel.user_id == user_id).first()
+        current_notes = memory_rec.memory_notes if memory_rec else ""
+        
+        api_key = os.getenv("OPENROUTER_API_KEY", "")
+        if not api_key or api_key == "paste_your_actual_key_here":
+            return
+            
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import SystemMessage
+        
+        llm = ChatOpenAI(
+            model_name="google/gemini-2.5-flash",
+            openai_api_key=api_key,
+            openai_api_base="https://openrouter.ai/api/v1",
+            temperature=0.2,
+            max_tokens=500,
+        )
+        
+        prompt = f"""You are a quiet background memory-logging agent. Your job is to analyze the conversation exchange and update a highly-compressed memory profile of the user.
+
+CURRENT MEMORY PROFILE:
+{current_notes or "(No memory yet)"}
+
+NEW INTERACTION:
+User: {user_msg}
+Assistant: {assistant_reply}
+
+INSTRUCTIONS:
+1. Extract any concrete, personal details about the user mentioned in the interaction (e.g. their name, age, location, job, favorite tech/coding stack, hobbies, language preferences, habits, goals, specific concerns, or style of talking).
+2. Merge these new details into the CURRENT MEMORY PROFILE.
+3. Remove old, redundant, outdated, or contradictory items. Keep it extremely compact (maximum 10 bullet points).
+4. Each bullet point should be a single, short sentence written in the English alphabet (e.g. "* User likes to code in TypeScript.", "* User's name is Pranav.").
+5. Output ONLY the updated list of bullet points. No conversational intro, no fluff, no explanations. Just the list.
+"""
+        response = llm.invoke([SystemMessage(content=prompt)])
+        updated_notes = response.content.strip()
+        if updated_notes:
+            if not memory_rec:
+                memory_rec = db.UserMemoryModel(user_id=user_id, memory_notes=updated_notes)
+                db_session.add(memory_rec)
+            else:
+                memory_rec.memory_notes = updated_notes
+            db_session.commit()
+    except Exception as e:
+        print(f"[BACKGROUND MEMORY ERROR]: {e}")
+    finally:
+        db_session.close()
+
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequestWithUser, database: Session = Depends(get_db), current_user: str = Depends(auth.get_current_user)):
+async def chat(request: ChatRequestWithUser, background_tasks: BackgroundTasks, database: Session = Depends(get_db), current_user: str = Depends(auth.get_current_user)):
     session_id = request.session_id
     username = request.username
     if current_user.lower() != username.lower():
         raise HTTPException(status_code=403, detail="Forbidden: You cannot chat as another user.")
     
-    # Ensure Session exists
+    # Ensure Session exists and retrieve user object
+    user = database.query(db.UserModel).filter(db.UserModel.username == username).first()
+    
     session_exists = database.query(db.SessionModel).filter(db.SessionModel.id == session_id).first()
     if not session_exists:
-        user = database.query(db.UserModel).filter(db.UserModel.username == username).first()
         if user:
             # Generate a title based on first query
             title = request.messages[-1].content[:30] + "..." if request.messages else "New Chat"
@@ -254,14 +306,30 @@ async def chat(request: ChatRequestWithUser, database: Session = Depends(get_db)
     else:
         lc_messages.append(HumanMessage(content=final_user_content))
             
-    # Invoke LangGraph Agent Model (TAXA Gemini 2.5 Flash)
-    result = agent_app.invoke({"messages": lc_messages})
+    # Retrieve user memory if available
+    user_memory_notes = ""
+    if user:
+        memory_rec = database.query(db.UserMemoryModel).filter(db.UserMemoryModel.user_id == user.id).first()
+        if memory_rec:
+            user_memory_notes = memory_rec.memory_notes
+
+    # Invoke LangGraph Agent Model (TAXA Gemini 2.5 Flash) with memory injection
+    result = agent_app.invoke({"messages": lc_messages, "user_memory": user_memory_notes})
     final_message = result["messages"][-1].content
     
     # Save assistant response to DB
     db_response = db.MessageModel(session_id=session_id, role="assistant", content=final_message)
     database.add(db_response)
     database.commit()
+    
+    # Schedule background memory update task to teach the bot from this interaction
+    if user:
+        background_tasks.add_task(
+            update_user_memory_task, 
+            user.id, 
+            latest_user_msg.content, 
+            final_message
+        )
     
     return ChatResponse(response=final_message)
 

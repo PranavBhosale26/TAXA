@@ -40,5 +40,12 @@ class MessageModel(Base):
     content = Column(Text)
     image_url = Column(Text, nullable=True)
 
+class UserMemoryModel(Base):
+    __tablename__ = "user_memory"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, index=True)
+    memory_notes = Column(Text, default="")
+
 Base.metadata.create_all(bind=engine)
+
 
