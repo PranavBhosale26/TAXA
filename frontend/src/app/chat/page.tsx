@@ -524,7 +524,7 @@ export default function ChatPage() {
            } else {
               setVoiceAssistantState("idle");
            }
-        });
+        }, true);
       }
       
     } catch (error) {
@@ -606,7 +606,7 @@ export default function ChatPage() {
   };
 
   // High-performance browser speech synthesis (Instant load & premium accents)
-  const speakText = (text: string, onEnd?: () => void) => {
+  const speakText = (text: string, onEnd?: () => void, isAsync: boolean = false) => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel(); // Cancel any delayed speaking instantly
       window.speechSynthesis.resume(); // Force-resume in case synthesis is in a stuck paused state!
@@ -624,90 +624,120 @@ export default function ChatPage() {
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    
-    const setVoice = () => {
-        const voices = window.speechSynthesis.getVoices();
-        
-        if (voiceGender === "female") {
-            // Prioritize premium Indian English/local female voices (Veena, Lekha, Aditi, Google India, en-IN) for flawless pronunciation of transliterated text
-            const femaleNames = ["veena", "lekha", "aditi", "samantha", "heera", "monica", "victoria", "karen", "tessa", "moira", "fiona", "ava", "allison", "female", "zira", "hazel"];
-            let selectedVoice = voices.find(v => 
-              v.lang.toLowerCase().startsWith("en-in") && 
-              femaleNames.some(name => v.name.toLowerCase().includes(name))
-            );
-            if (!selectedVoice) {
-              selectedVoice = voices.find(v => femaleNames.some(name => v.name.toLowerCase().includes(name)));
-            }
-            if (!selectedVoice) {
-              selectedVoice = voices.find(v => v.lang.toLowerCase().includes("in"));
-            }
-            if (!selectedVoice) {
-              selectedVoice = voices.find(v => v.name.toLowerCase().includes("female"));
-            }
-            if (!selectedVoice) {
-              selectedVoice = voices.find(v => v.lang.startsWith("en-"));
-            }
-            if (selectedVoice) utterance.voice = selectedVoice;
-        } else {
-            // Prioritize premium Indian English/local male voices (Rishi, Ravi, Google India, en-IN)
-            const maleNames = ["rishi", "ravi", "david", "daniel", "aaron", "alex", "fred", "guy", "male", "george", "james"];
-            let selectedVoice = voices.find(v => 
-              v.lang.toLowerCase().startsWith("en-in") && 
-              maleNames.some(name => v.name.toLowerCase().includes(name))
-            );
-            if (!selectedVoice) {
-              selectedVoice = voices.find(v => maleNames.some(name => v.name.toLowerCase().includes(name)));
-            }
-            if (!selectedVoice) {
-              selectedVoice = voices.find(v => v.lang.toLowerCase().includes("in"));
-            }
-            if (!selectedVoice) {
-              selectedVoice = voices.find(v => v.name.toLowerCase().includes("male"));
-            }
-            if (!selectedVoice) {
-              selectedVoice = voices.find(v => v.lang.startsWith("en-"));
-            }
-            if (selectedVoice) utterance.voice = selectedVoice;
-        }
-    };
-    
-    setVoice();
-    window.speechSynthesis.onvoiceschanged = setVoice;
-    utterance.pitch = 1.0; // Pleasant human-like tone
-    utterance.rate = 1.12; // Extremely natural, human conversational speed
-    
-    let hasEnded = false;
-    const estimatedDuration = (cleanText.split(/\s+/).length * 450) + 2000;
-    let speechTimeout: NodeJS.Timeout | null = null;
-    const triggerEnd = () => {
-      if (hasEnded) return;
-      hasEnded = true;
-      if (speechTimeout) {
-        clearTimeout(speechTimeout);
-      }
-      if (isInterruptedRef.current) {
-        isInterruptedRef.current = false;
+    const startSpeaking = () => {
+      if (typeof window === "undefined" || !window.speechSynthesis) {
+        if (onEnd) onEnd();
         return;
       }
-      if (onEnd) onEnd();
-    };
-    
-    utterance.onend = triggerEnd;
-    utterance.onerror = (e) => {
-      console.warn("Synthesis error", e);
-      triggerEnd();
-    };
-    
-    speechTimeout = setTimeout(() => {
-      if (!hasEnded) {
-        console.warn("Failsafe triggered for stuck speech synthesis.");
-        window.speechSynthesis.cancel();
-        triggerEnd();
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.volume = 1.0; // Force full audibility output (1.0 = maximum volume)
+      utterance.pitch = 1.0; // Pleasant human-like tone
+      utterance.rate = 1.12; // Extremely natural, human conversational speed
+      
+      const setVoice = () => {
+          const voices = window.speechSynthesis.getVoices();
+          
+          if (voiceGender === "female") {
+              // Prioritize premium Indian English/local female voices (Veena, Lekha, Aditi, Google India, en-IN) for flawless pronunciation of transliterated text
+              const femaleNames = ["veena", "lekha", "aditi", "samantha", "heera", "monica", "victoria", "karen", "tessa", "moira", "fiona", "ava", "allison", "female", "zira", "hazel"];
+              let selectedVoice = voices.find(v => 
+                v.lang.toLowerCase().startsWith("en-in") && 
+                femaleNames.some(name => v.name.toLowerCase().includes(name))
+              );
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => femaleNames.some(name => v.name.toLowerCase().includes(name)));
+              }
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.lang.toLowerCase().includes("in"));
+              }
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.name.toLowerCase().includes("female"));
+              }
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.lang.startsWith("en-"));
+              }
+              if (selectedVoice) {
+                utterance.voice = selectedVoice;
+                utterance.lang = selectedVoice.lang;
+              } else {
+                utterance.lang = "en-IN"; // Explicit default fallback lang to guarantee local speech synthesis catalog engine is activated
+              }
+          } else {
+              // Prioritize premium Indian English/local male voices (Rishi, Ravi, Google India, en-IN)
+              const maleNames = ["rishi", "ravi", "david", "daniel", "aaron", "alex", "fred", "guy", "male", "george", "james"];
+              let selectedVoice = voices.find(v => 
+                v.lang.toLowerCase().startsWith("en-in") && 
+                maleNames.some(name => v.name.toLowerCase().includes(name))
+              );
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => maleNames.some(name => v.name.toLowerCase().includes(name)));
+              }
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.lang.toLowerCase().includes("in"));
+              }
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.name.toLowerCase().includes("male"));
+              }
+              if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.lang.startsWith("en-"));
+              }
+              if (selectedVoice) {
+                utterance.voice = selectedVoice;
+                utterance.lang = selectedVoice.lang;
+              } else {
+                utterance.lang = "en-IN"; // Explicit default fallback lang
+              }
+          }
+      };
+      
+      setVoice();
+      // Only keep voiceschanged bound if we don't have voices loaded yet to avoid re-triggering mid-speech
+      if (window.speechSynthesis.getVoices().length === 0) {
+        window.speechSynthesis.onvoiceschanged = setVoice;
       }
-    }, estimatedDuration);
-    
-    window.speechSynthesis.speak(utterance);
+      
+      let hasEnded = false;
+      const estimatedDuration = (cleanText.split(/\s+/).length * 450) + 2000;
+      let speechTimeout: NodeJS.Timeout | null = null;
+      const triggerEnd = () => {
+        if (hasEnded) return;
+        hasEnded = true;
+        if (speechTimeout) {
+          clearTimeout(speechTimeout);
+        }
+        if (isInterruptedRef.current) {
+          isInterruptedRef.current = false;
+          return;
+        }
+        if (onEnd) onEnd();
+      };
+      
+      utterance.onend = triggerEnd;
+      utterance.onerror = (e) => {
+        console.warn("Synthesis error", e);
+        triggerEnd();
+      };
+      
+      speechTimeout = setTimeout(() => {
+        if (!hasEnded) {
+          console.warn("Failsafe triggered for stuck speech synthesis.");
+          if (typeof window !== "undefined" && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+          }
+          triggerEnd();
+        }
+      }, estimatedDuration);
+      
+      window.speechSynthesis.speak(utterance);
+    };
+
+    if (isAsync) {
+      // Buffer of 100ms for asynchronous speech synthesis triggers so Chrome/Safari audio thread completes cancel()
+      setTimeout(startSpeaking, 100);
+    } else {
+      startSpeaking();
+    }
   };
 
   // Speaks/Stops individual messages in standard chat bubbles
@@ -822,7 +852,7 @@ export default function ChatPage() {
           } else {
             setVoiceAssistantState("idle");
           }
-        });
+        }, true);
         return; // Intercept: do not send to LLM
       } else if (
         cleanTranscript.includes("switch to female") || 
@@ -849,7 +879,7 @@ export default function ChatPage() {
           } else {
             setVoiceAssistantState("idle");
           }
-        });
+        }, true);
         return; // Intercept: do not send to LLM
       }
 
