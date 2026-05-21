@@ -136,6 +136,11 @@ export default function ChatPage() {
   useEffect(() => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.getVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          window.speechSynthesis.getVoices();
+        };
+      }
     }
   }, []);
 
@@ -551,6 +556,15 @@ export default function ChatPage() {
     setVoiceAssistantState("speaking");
     setLastUserVoiceTranscript("");
     
+    // Explicit SpeechSynthesis unlock for Chrome/Safari autoplay policies
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
+      const unlockUtterance = new SpeechSynthesisUtterance("");
+      unlockUtterance.volume = 0;
+      window.speechSynthesis.speak(unlockUtterance);
+    }
+    
     // Request microphone permission once upfront to avoid checking on every tick or breaking non-secure contexts
     if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
@@ -593,7 +607,10 @@ export default function ChatPage() {
 
   // High-performance browser speech synthesis (Instant load & premium accents)
   const speakText = (text: string, onEnd?: () => void) => {
-    window.speechSynthesis.cancel(); // Cancel any delayed speaking instantly
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel(); // Cancel any delayed speaking instantly
+      window.speechSynthesis.resume(); // Force-resume in case synthesis is in a stuck paused state!
+    }
     
     // Strip markdown formatting before speaking to keep it highly fluent
     const cleanText = text
