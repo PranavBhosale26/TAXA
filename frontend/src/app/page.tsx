@@ -75,25 +75,28 @@ export default function Home() {
 
   const newsFeed = [
     {
-      tag: "INFRASTRUCTURE",
-      title: "Global Workspace Optimization Launch",
-      desc: "TAXA has completed its global workspace infrastructure upgrade. Experience sub-second speed increases when organizing heavy document logs, text sheets, and high-resolution media canvases dynamically.",
-      time: "2 hours ago",
-      details: "Our product studio has rolled out massive speed enhancements. Customers can now upload larger business profiles, structured templates, and dashboard graphics to receive highly accurate summaries, commercial formats, or interactive reports. Average responsiveness is now virtually instantaneous, making it the fastest data workstation on the market today."
+      tag: "COMPUTING",
+      title: "NVIDIA Blackwell Platform Redefines Generative AI Scale",
+      desc: "Blackwell GPUs deliver up to 20 petaflops of FP4 AI performance, enabling organizations to run real-time generative AI on trillion-parameter large language models at unprecedented speed and power efficiency.",
+      details: "The Blackwell platform features six revolutionary technologies for accelerated computing, which will help unlock breakthroughs in data processing, engineering simulation, electronic design automation, computer-aided drug design, and quantum computing. It promises up to 25x reduced energy costs and operating footprint compared to the previous Hopper architecture.",
+      time: "Trending Now",
+      url: "https://nvidianews.nvidia.com/news/nvidia-blackwell-platform-arrives-to-power-a-new-era-of-computing"
     },
     {
-      tag: "WORKSPACE",
-      title: "Advanced Dynamic Layout & Tablet Support",
-      desc: "We are excited to launch TAXA's multi-device framework. Seamlessly transition between your laptop, office tablet, and iOS/Android mobile screens with beautiful, responsive custom interfaces.",
-      time: "1 day ago",
-      details: "To support remote productivity, our creative design team has crafted custom interfaces optimized for touch surfaces. The sidebar collapses automatically on compact devices, and key features like vocal prompts and file attachments adjust natively to your screen orientation. Enjoy a premium, unified workspace experience whether you are at your desk or on the move."
+      tag: "BIOTECH",
+      title: "Google DeepMind Unveils AlphaFold 3 Molecular Engine",
+      desc: "Introducing a revolutionary model that predicts structure and interactions of DNA, RNA, proteins, and chemical compounds with high precision, unlocking new pathways for biology and molecular drug design.",
+      details: "AlphaFold 3 goes beyond proteins to map a broad spectrum of biomolecules. Developed in collaboration with Isomorphic Labs, it allows researchers to model interactions with nucleic acids and chemical compounds, significantly accelerating vaccine and targeted drug design research workflows.",
+      time: "Hot Topic",
+      url: "https://deepmind.google/technologies/alphafold/"
     },
     {
-      tag: "SECURITY",
-      title: "Bank-Grade Security & Client Privacy Protocols",
-      desc: "TAXA introduces private account isolation. All credentials, session records, and uploaded files are secured with enterprise-grade encryption keys, keeping your workspace private.",
-      time: "3 days ago",
-      details: "Your data privacy is our highest priority. TAXA is built on a private-first architecture, ensuring that every user account has its own isolated, secure database sandbox. Credentials use advanced hash keys, and communication channels are protected under secure TLS layers. We enforce a zero-retention policy on all external interfaces, meaning your files are strictly yours and are never stored or shared on public networks."
+      tag: "AI FRONTIER",
+      title: "OpenAI Announces GPT-4o Omnimodal Native Assistant",
+      desc: "A massive leap in human-computer interaction, natively integrating real-time voice conversations, high-fidelity visual reasoning, and sub-second multilingual text generation in a unified intelligence.",
+      details: "GPT-4o ('o' for omni) represents a massive step toward much more natural human-computer interaction. It accepts any combination of text, audio, and image inputs and generates text, audio, and image outputs natively. This enables instant dialogue response times averaging 232 milliseconds, matching human conversational speed.",
+      time: "Breaking News",
+      url: "https://openai.com/index/gpt-4o-and-more-capabilities-to-chatgpt/"
     }
   ];
 
@@ -187,11 +190,26 @@ export default function Home() {
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
           </nav>
           
-          <Link href={userName ? "/chat" : "/login"}>
-            <Button size="sm" className="rounded-xl bg-white/5 border border-white/10 hover:bg-[#7b2cbf]/20 hover:border-[#c084fc]/30 text-white font-bold text-xs tracking-wider uppercase px-5 py-2 h-9 transition-all active:scale-95">
-              {userName ? "Enter Workspace" : "Access Workspace"}
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            {userName && (
+              <Button 
+                onClick={() => {
+                  localStorage.removeItem("omnimind_token");
+                  localStorage.removeItem("omnimind_user");
+                  setUserName("");
+                }}
+                size="sm" 
+                className="rounded-xl bg-red-950/20 border border-red-500/20 hover:bg-red-500/10 text-red-400 font-bold text-xs tracking-wider uppercase px-5 py-2 h-9 transition-all active:scale-95"
+              >
+                Sign Out
+              </Button>
+            )}
+            <Link href={userName ? "/chat" : "/login"}>
+              <Button size="sm" className="rounded-xl bg-white/5 border border-white/10 hover:bg-[#7b2cbf]/20 hover:border-[#c084fc]/30 text-white font-bold text-xs tracking-wider uppercase px-5 py-2 h-9 transition-all active:scale-95">
+                {userName ? "Enter Workspace" : "Access Workspace"}
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -359,7 +377,7 @@ export default function Home() {
               </div>
             </motion.section>
 
-            {/* SECTION 3: Technical Logs & Bulletins */}
+            {/* SECTION 3: Latest Trending Tech News */}
             <motion.section 
               id="updates"
               variants={itemVariants}
@@ -368,7 +386,7 @@ export default function Home() {
               <div className="flex items-center gap-2.5 mb-10">
                 <div className="h-2.5 w-2.5 rounded-full bg-[#c084fc] animate-ping"></div>
                 <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-[#c084fc]" /> Technical Bulletins & Release Notes
+                  <Activity className="h-5 w-5 text-[#c084fc]" /> Latest Trending Tech News
                 </h2>
               </div>
 
@@ -376,7 +394,11 @@ export default function Home() {
                 {newsFeed.map((news, idx) => (
                   <div 
                     key={idx}
-                    onClick={() => setActiveNewsIdx(idx)}
+                    onClick={() => {
+                      if (news.url) {
+                        window.open(news.url, '_blank');
+                      }
+                    }}
                     className="p-6 rounded-2xl border border-white/[0.04] bg-white/[0.008] hover:bg-white/[0.025] hover:border-[#7b2cbf]/30 transition-all duration-300 flex flex-col justify-between h-full group cursor-pointer shadow-md"
                   >
                     <div>
@@ -393,7 +415,7 @@ export default function Home() {
                     </div>
 
                     <div className="mt-6 flex items-center gap-1.5 text-xs font-semibold text-zinc-400 group-hover:text-[#c084fc] transition-colors">
-                      Expand full updates <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" />
+                      Read full article <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" />
                     </div>
                   </div>
                 ))}

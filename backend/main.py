@@ -53,6 +53,10 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    email: str
+    name: str
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -100,13 +104,32 @@ async def login(user: UserLogin, database: Session = Depends(get_db)):
     access_token = auth.create_access_token(data={"sub": db_user.username})
     return {"access_token": access_token, "token_type": "bearer", "username": db_user.username}
 
+@app.post("/api/google-login", response_model=Token)
+async def google_login(payload: GoogleLoginRequest, database: Session = Depends(get_db)):
+    username = payload.email.lower()
+    db_user = database.query(db.UserModel).filter(db.UserModel.username == username).first()
+    if not db_user:
+        hashed_password = auth.get_password_hash("google_auth_" + os.urandom(8).hex())
+        db_user = db.UserModel(username=username, password_hash=hashed_password)
+        database.add(db_user)
+        database.commit()
+        database.refresh(db_user)
+        
+    access_token = auth.create_access_token(data={"sub": db_user.username})
+    return {"access_token": access_token, "token_type": "bearer", "username": db_user.username}
+
 class SessionResponse(BaseModel):
     id: str
     title: str
 
+@app.get("/api/verify-token")
+async def verify_token(current_user: str = Depends(auth.get_current_user)):
+    return {"status": "valid", "username": current_user}
+
 @app.get("/api/sessions/{username}", response_model=List[SessionResponse])
-async def get_sessions(username: str, database: Session = Depends(get_db)):
-    verify_user(username)
+async def get_sessions(username: str, database: Session = Depends(get_db), current_user: str = Depends(auth.get_current_user)):
+    if current_user.lower() != username.lower():
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot access this user's sessions.")
     user = database.query(db.UserModel).filter(db.UserModel.username == username).first()
     if not user:
         return []
@@ -114,15 +137,15 @@ async def get_sessions(username: str, database: Session = Depends(get_db)):
     return [{"id": s.id, "title": s.title} for s in sessions]
 
 @app.delete("/api/sessions/{session_id}")
-async def delete_session(session_id: str, database: Session = Depends(get_db)):
+async def delete_session(session_id: str, database: Session = Depends(get_db), current_user: str = Depends(auth.get_current_user)):
     session = database.query(db.SessionModel).filter(db.SessionModel.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Verify owner is allowed
+    # Verify owner matches authenticated user
     user = database.query(db.UserModel).filter(db.UserModel.id == session.user_id).first()
-    if user:
-        verify_user(user.username)
+    if not user or user.username.lower() != current_user.lower():
+        raise HTTPException(status_code=403, detail="Forbidden: You do not own this session.")
         
     # Delete all messages in the session
     database.query(db.MessageModel).filter(db.MessageModel.session_id == session_id).delete()
@@ -133,8 +156,9 @@ async def delete_session(session_id: str, database: Session = Depends(get_db)):
     return {"status": "success", "message": f"Session {session_id} and all messages deleted."}
 
 @app.delete("/api/sessions/clear/{username}")
-async def clear_all_sessions(username: str, database: Session = Depends(get_db)):
-    verify_user(username)
+async def clear_all_sessions(username: str, database: Session = Depends(get_db), current_user: str = Depends(auth.get_current_user)):
+    if current_user.lower() != username.lower():
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot clear this user's history.")
     user = database.query(db.UserModel).filter(db.UserModel.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -148,7 +172,16 @@ async def clear_all_sessions(username: str, database: Session = Depends(get_db))
     return {"status": "success", "message": "All chat history cleared successfully."}
 
 @app.get("/api/history/{session_id}", response_model=HistoryResponse)
-async def get_history(session_id: str, database: Session = Depends(get_db)):
+async def get_history(session_id: str, database: Session = Depends(get_db), current_user: str = Depends(auth.get_current_user)):
+    session = database.query(db.SessionModel).filter(db.SessionModel.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    # Verify owner matches authenticated user
+    user = database.query(db.UserModel).filter(db.UserModel.id == session.user_id).first()
+    if not user or user.username.lower() != current_user.lower():
+        raise HTTPException(status_code=403, detail="Forbidden: You do not own this session.")
+
     msgs = database.query(db.MessageModel).filter(db.MessageModel.session_id == session_id).all()
     history = [MessageSchema(role=m.role, content=m.content, image_url=m.image_url) for m in msgs]
     return HistoryResponse(messages=history)
@@ -159,10 +192,11 @@ class ChatRequestWithUser(ChatRequest):
     attached_file_name: Optional[str] = None
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequestWithUser, database: Session = Depends(get_db)):
+async def chat(request: ChatRequestWithUser, database: Session = Depends(get_db), current_user: str = Depends(auth.get_current_user)):
     session_id = request.session_id
     username = request.username
-    verify_user(username)
+    if current_user.lower() != username.lower():
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot chat as another user.")
     
     # Ensure Session exists
     session_exists = database.query(db.SessionModel).filter(db.SessionModel.id == session_id).first()
@@ -233,7 +267,7 @@ async def chat(request: ChatRequestWithUser, database: Session = Depends(get_db)
 
 # ---- File/Image Upload Endpoint ----
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), current_user: str = Depends(auth.get_current_user)):
     try:
         content = await file.read()
         filename = file.filename.lower()
