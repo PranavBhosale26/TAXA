@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TAXA | The Data Sculptor Workspace",
-  description: "Professional Agentic Data Sculpting Workspace powered by Gemini 2.5 and Next.js",
+  title: "TAXA AI | The Sovereign Intelligent Studio & Data Workspace",
+  description: "TAXA AI is a high-end, secure, local-first artificial intelligence assistant and chat companion powered by Gemini 2.5 Flash and Next.js.",
   verification: {
     google: "cec4c77793531f89",
   },
