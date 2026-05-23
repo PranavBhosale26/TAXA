@@ -30,7 +30,39 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Disable right-click context menu
+              document.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+              });
+
+              // Disable standard developer panel keyboard shortcuts
+              document.addEventListener('keydown', function(e) {
+                // Block F12
+                if (e.key === 'F12') {
+                  e.preventDefault();
+                }
+                // Block Ctrl+Shift+I / Cmd+Opt+I (Inspect Element)
+                if ((e.ctrlKey || e.metaKey || e.altKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'c' || e.key === 'C')) {
+                  e.preventDefault();
+                }
+                // Block Ctrl+Shift+J / Cmd+Opt+J (Console Panel)
+                if ((e.ctrlKey || e.metaKey || e.altKey) && e.shiftKey && (e.key === 'J' || e.key === 'j')) {
+                  e.preventDefault();
+                }
+                // Block Ctrl+U / Cmd+U (View Source Code)
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'U' || e.key === 'u')) {
+                  e.preventDefault();
+                }
+              });
+            `
+          }}
+        />
+      </body>
     </html>
   );
 }
