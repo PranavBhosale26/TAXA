@@ -79,6 +79,17 @@ export default function ChatPage() {
   const [attachedImage, setAttachedImage] = useState(""); // base64 representation
   
   const [userName, setUserName] = useState("Guest");
+  
+  const getFriendlyName = (name: string): string => {
+    if (!name) return "Guest";
+    if (name.includes("@")) {
+      const parts = name.split("@")[0].split(/[._-]/);
+      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    }
+    const parts = name.trim().split(/\s+/);
+    return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  };
+
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
   
   // Voice states
@@ -319,7 +330,7 @@ export default function ChatPage() {
     setMessages([
       { 
         role: "assistant", 
-        content: `A fresh slate, **${userName}**. How can I help you today? Ask me any question, write code, or analyze files.` 
+        content: `A fresh slate, **${getFriendlyName(userName)}**. How can I help you today? Ask me any question, write code, or analyze files.` 
       }
     ]);
     // Clear current attachments
@@ -598,7 +609,7 @@ export default function ChatPage() {
     }
     
     // Exact requested greeting: "Hi [Name], I'm TAXA. Tell me, how can I help you?"
-    const greetingText = `Hi ${userName}, I'm TAXA. Tell me, how can I help you?`;
+    const greetingText = `Hi ${getFriendlyName(userName)}, I'm TAXA. Tell me, how can I help you?`;
     setLastAssistantVoiceTranscript(greetingText);
     
     speakText(greetingText, () => {
@@ -829,7 +840,7 @@ export default function ChatPage() {
     setExportText(content);
     setExportTitle(meta.name || "TAXA Document");
     setExportTemplate(detectedTemplate);
-    setExportAuthor(userName === "Guest" ? (meta.name || "") : userName);
+    setExportAuthor(userName === "Guest" ? (meta.name || "") : getFriendlyName(userName));
     setExportEmail(meta.email || "");
     setExportPhone(meta.phone || "");
     setExportGithub(meta.github || "");
@@ -1104,13 +1115,11 @@ export default function ChatPage() {
 
       {/* Sidebar Panel - Responsive & Collapsible */}
       <div 
-        className={`fixed md:relative top-0 bottom-0 left-0 z-40 flex w-72 flex-col shrink-0 border-r h-screen transition-all duration-300 ease-in-out ${
+        className={`relative top-0 bottom-0 left-0 z-40 flex w-72 flex-col shrink-0 border-r h-screen transition-all duration-300 ease-in-out ${
           theme === 'light'
-            ? 'border-[#7b2cbf]/10 bg-[#f3eff7]/95 md:bg-[#f3eff7]/90'
-            : 'border-white/[0.04] bg-[#07040a]/95 md:bg-[#07040a]/90'
-        } backdrop-blur-3xl ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        } ${isSidebarCollapsed ? "md:-ml-72 md:border-r-0" : "md:ml-0"}`}
+            ? 'border-[#7b2cbf]/10 bg-[#f3eff7]/90'
+            : 'border-white/[0.04] bg-[#07040a]/90'
+        } backdrop-blur-3xl ${isSidebarCollapsed ? "-ml-72 border-r-0" : "ml-0"}`}
       >
         {/* Core TAXA Logo */}
         <div className={`p-5 flex items-center justify-between border-b shrink-0 ${
@@ -1339,10 +1348,10 @@ export default function ChatPage() {
            
            <div className="flex items-center gap-3 min-w-0">
              <Avatar className="w-9 h-9 rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-sm font-bold border border-white/5 text-zinc-200">
-                {userName.charAt(0).toUpperCase()}
+                {getFriendlyName(userName).charAt(0).toUpperCase()}
              </Avatar>
              <div className="flex flex-col min-w-0">
-               <span className="text-xs sm:text-sm font-semibold text-zinc-300 truncate">{userName}</span>
+               <span className="text-xs sm:text-sm font-semibold text-zinc-300 truncate">{getFriendlyName(userName)}</span>
                <span className="text-[9px] text-[#c084fc] font-bold tracking-widest uppercase">Master Architect</span>
              </div>
            </div>
@@ -1435,8 +1444,8 @@ export default function ChatPage() {
         theme === 'light' ? 'bg-[#fbfafc]' : 'bg-[#030006]'
       }`}>
         
-        {/* Top Floating Action Bar (Desktop only) */}
-        <div className="hidden md:flex absolute top-5 right-5 z-30 gap-3 items-center">
+        {/* Top Floating Action Bar */}
+        <div className="absolute top-5 right-5 z-30 flex gap-3 items-center">
           <button
             onClick={openVoicePortal}
             className="relative flex items-center gap-2.5 px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] hover:from-[#8b3cd3] hover:to-[#a85cfc] border border-[#c084fc]/40 rounded-full shadow-[0_0_15px_rgba(123,44,191,0.3)] hover:shadow-[0_0_25px_rgba(123,44,191,0.5)] transition-all active:scale-95 group overflow-hidden"
@@ -1453,9 +1462,9 @@ export default function ChatPage() {
           </button>
         </div>
         
-        {/* Sidebar Expand Trigger for Desktop (visible when collapsed) */}
+        {/* Sidebar Expand Trigger (visible when collapsed) */}
         {isSidebarCollapsed && (
-          <div className="hidden md:flex absolute top-5 left-5 z-50 animate-in fade-in duration-300">
+          <div className="absolute top-5 left-5 z-50 flex animate-in fade-in duration-300">
             <button
               onClick={() => setIsSidebarCollapsed(false)}
               className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#7b2cbf] to-[#c084fc] text-white flex items-center justify-center shadow-[0_0_15px_rgba(157,78,221,0.3)] border border-[#e0aaff]/15 hover:opacity-85 transition-opacity active:scale-95 shrink-0"
@@ -1474,52 +1483,6 @@ export default function ChatPage() {
           theme === 'light' ? 'bg-[#c084fc]/1.5' : 'bg-[#c084fc]/3'
         }`} />
 
-        {/* Mobile Header Banner */}
-        <div className={`md:hidden flex p-4 border-b items-center justify-between backdrop-blur-xl z-20 shrink-0 ${
-          theme === 'light'
-            ? 'border-[#7b2cbf]/10 bg-[#f3eff7]/90'
-            : 'border-white/[0.03] bg-[#07040a]/90'
-        }`}>
-           <div className="flex items-center gap-2">
-             <Button 
-               onClick={() => {
-                 setIsSidebarOpen(true);
-                 setIsSidebarCollapsed(false);
-               }}
-               variant="ghost" 
-               size="icon" 
-               className="text-zinc-400 h-9 w-9 hover:bg-white/5 rounded-lg mr-1"
-             >
-               <Menu className="w-5 h-5" />
-             </Button>
-             <div className={`font-extrabold flex items-center gap-2 tracking-widest text-lg ${
-                theme === 'light' ? 'text-[#1f1a24]' : 'text-white'
-              }`}>
-                <div className={`w-6.5 h-6.5 rounded-lg bg-gradient-to-br from-[#7b2cbf] to-[#c084fc] flex items-center justify-center border ${
-                  theme === 'light' ? 'border-black/5' : 'border-white/5'
-                }`}><Layers className="w-3.5 h-3.5 text-white"/></div>
-                TAXA
-              </div>
-           </div>
-           
-           <div className="flex gap-2 items-center">
-              <button 
-                onClick={openVoicePortal} 
-                className="relative flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-white bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] border border-[#c084fc]/30 rounded-full shadow-[0_0_10px_rgba(123,44,191,0.2)] active:scale-[0.93] group" 
-                title="TAXA Voice Assistance"
-              >
-                <Headphones className="w-3.5 h-3.5 text-purple-100 group-hover:rotate-[360deg] transition-transform duration-700 shrink-0" />
-                <span className="hidden sm:inline">TAXA Voice</span>
-                <span className="flex h-1.5 w-1.5 relative shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
-                </span>
-              </button>
-             <Button onClick={createNewChat} variant="ghost" size="icon" className="text-zinc-400 h-9 w-9 hover:bg-white/5 rounded-lg"><Plus className="w-4 h-4"/></Button>
-             <Button onClick={handleLogout} variant="ghost" size="icon" className="text-zinc-500 hover:text-red-400 h-9 w-9 hover:bg-white/5 rounded-lg"><LogOut className="w-4 h-4"/></Button>
-           </div>
-        </div>
-
         {/* Scrollable Messages Area */}
         <div ref={scrollRef} className={`flex-1 overflow-y-auto p-4 sm:p-8 scrollbar-thin scrollbar-track-transparent ${
           theme === 'light' ? 'scrollbar-thumb-[#7b2cbf]/10' : 'scrollbar-thumb-white/[0.04]'
@@ -1530,7 +1493,7 @@ export default function ChatPage() {
                 {/* Center-aligned large title */}
                 <h1 className="text-center font-extrabold tracking-tight text-3xl sm:text-5xl leading-tight mb-2">
                   <span className="bg-gradient-to-r from-[#7b2cbf] via-[#c084fc] to-[#7b2cbf] bg-clip-text text-transparent animate-pulse">
-                    Hi, {userName}.
+                    Hi, {getFriendlyName(userName)}.
                   </span>
                   <br />
                   <span className={theme === 'light' ? 'text-zinc-700' : 'text-zinc-300'}>
@@ -1707,7 +1670,7 @@ export default function ChatPage() {
                           </div>
                         ) : (
                           <div className="bg-zinc-800 w-full h-full flex items-center justify-center">
-                            <span className="text-xs sm:text-sm font-semibold text-zinc-300">{userName.charAt(0).toUpperCase()}</span>
+                            <span className="text-xs sm:text-sm font-semibold text-zinc-300">{getFriendlyName(userName).charAt(0).toUpperCase()}</span>
                           </div>
                         )}
                       </Avatar>
@@ -1716,7 +1679,7 @@ export default function ChatPage() {
                         
                         {/* Header: User name and voice speak icon */}
                         <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
-                          <span>{m.role === 'user' ? userName : 'TAXA'}</span>
+                          <span>{m.role === 'user' ? getFriendlyName(userName) : 'TAXA'}</span>
                           {m.role === 'assistant' && (
                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button 
