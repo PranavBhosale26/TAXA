@@ -30,7 +30,9 @@ import {
   Sun,
   Moon,
   Eye,
-  EyeOff
+  EyeOff,
+  Download,
+  Palette
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -39,6 +41,15 @@ import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getApiBaseUrl } from "@/lib/api";
+import { 
+  exportToPDF, 
+  exportToDOCX, 
+  exportToTXT, 
+  autoExtractMetadata, 
+  cleanMarkdownSymbols,
+  TemplateType, 
+  ExporterOptions 
+} from "@/lib/documentExporter";
 
 type Message = { role: "user" | "assistant"; content: string; image_url?: string };
 type Session = { id: string; title: string };
@@ -98,6 +109,18 @@ export default function ChatPage() {
   // Mobile & Collapsible Sidebar States
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Document Creator/Exporter Workspace States
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportText, setExportText] = useState("");
+  const [exportTitle, setExportTitle] = useState("TAXA Generated Document");
+  const [exportTemplate, setExportTemplate] = useState<TemplateType>("plain");
+  const [exportAuthor, setExportAuthor] = useState("");
+  const [exportEmail, setExportEmail] = useState("");
+  const [exportPhone, setExportPhone] = useState("");
+  const [exportGithub, setExportGithub] = useState("");
+  const [exportLinkedin, setExportLinkedin] = useState("");
+  const [exportAccentColor, setExportAccentColor] = useState("#7b2cbf");
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -772,6 +795,47 @@ export default function ChatPage() {
     }
     setSpeakingIdx(index);
     speakText(text, () => setSpeakingIdx(null));
+  };
+
+  const handleOpenExportWorkspace = (content: string) => {
+    const meta = autoExtractMetadata(content);
+    
+    // Check if the content looks like a resume or CV
+    const lowerContent = content.toLowerCase();
+    let detectedTemplate: TemplateType = "plain";
+    if (
+      lowerContent.includes("experience") || 
+      lowerContent.includes("education") || 
+      lowerContent.includes("resume") || 
+      lowerContent.includes("cv") ||
+      lowerContent.includes("skills")
+    ) {
+      detectedTemplate = "cv";
+    } else if (
+      lowerContent.includes("report") || 
+      lowerContent.includes("project") || 
+      lowerContent.includes("abstract") ||
+      lowerContent.includes("introduction")
+    ) {
+      detectedTemplate = "report";
+    } else if (
+      lowerContent.includes("dear") || 
+      lowerContent.includes("sincerely") || 
+      lowerContent.includes("subject:")
+    ) {
+      detectedTemplate = "letter";
+    }
+
+    setExportText(content);
+    setExportTitle(meta.name || "TAXA Document");
+    setExportTemplate(detectedTemplate);
+    setExportAuthor(userName === "Guest" ? (meta.name || "") : userName);
+    setExportEmail(meta.email || "");
+    setExportPhone(meta.phone || "");
+    setExportGithub(meta.github || "");
+    setExportLinkedin(meta.linkedin || "");
+    setExportAccentColor("#7b2cbf"); // default brand purple
+    setIsExportModalOpen(true);
   };
 
   // Trigger continuous listening / speech-to-text
@@ -1654,13 +1718,22 @@ export default function ChatPage() {
                         <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
                           <span>{m.role === 'user' ? userName : 'TAXA'}</span>
                           {m.role === 'assistant' && (
-                            <button 
-                              onClick={() => handleSpeakMessage(m.content, i)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-[#c084fc]"
-                              title={speakingIdx === i ? "Stop Chisel Voice" : "Chisel Voice"}
-                            >
-                              {speakingIdx === i ? <Square className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                            </button>
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => handleSpeakMessage(m.content, i)}
+                                className="text-zinc-500 hover:text-[#c084fc] transition-colors"
+                                title={speakingIdx === i ? "Stop Chisel Voice" : "Chisel Voice"}
+                              >
+                                {speakingIdx === i ? <Square className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                              </button>
+                              <button 
+                                onClick={() => handleOpenExportWorkspace(m.content)}
+                                className="text-zinc-500 hover:text-[#c084fc] transition-colors"
+                                title="Export Document (PDF/DOCX)"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
                         </div>
                         
@@ -1820,6 +1893,376 @@ export default function ChatPage() {
           </div>
         )}
       </div>
+
+      {/* TAXA Premium Document Engine & Workspace Overlay */}
+      {isExportModalOpen && (
+        <div 
+          onClick={() => setIsExportModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-6 transition-all duration-300 animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-6xl bg-[#09040e]/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[90vh] max-h-[90vh] animate-in zoom-in-95 duration-200 text-zinc-100"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12081d]/60 shrink-0">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#c084fc]" />
+                <h3 className="text-sm font-bold text-white tracking-wide uppercase">TAXA Document Engine & Live Workspace</h3>
+              </div>
+              <button 
+                onClick={() => setIsExportModalOpen(false)}
+                className="text-zinc-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Split Screen Workspace */}
+            <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+              
+              {/* Left Column: Editor & Control Panel */}
+              <div className="w-full lg:w-[45%] p-6 border-b lg:border-b-0 lg:border-r border-white/10 overflow-y-auto space-y-5 bg-[#07030a]">
+                
+                {/* Section 1: Template Selection */}
+                <div>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block mb-2">Select Template Style</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: "cv", label: "CV / Resume" },
+                      { id: "report", label: "Project Report" },
+                      { id: "letter", label: "Cover Letter" },
+                      { id: "plain", label: "Monospace / Plain" }
+                    ].map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setExportTemplate(t.id as TemplateType)}
+                        className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all duration-200 active:scale-95 ${
+                          exportTemplate === t.id
+                            ? "bg-gradient-to-r from-[#7b2cbf]/20 to-[#9d4edd]/20 border-[#c084fc] text-[#c084fc]"
+                            : "bg-white/[0.02] border-white/5 text-zinc-400 hover:bg-white/[0.04]"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section 2: Color Picker */}
+                <div>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block mb-2 flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5" /> Accent Palette Color
+                  </label>
+                  <div className="flex items-center gap-3">
+                    {[
+                      { hex: "#7b2cbf", name: "brand-purple" },
+                      { hex: "#0d9488", name: "teal" },
+                      { hex: "#d97706", name: "amber" },
+                      { hex: "#e11d48", name: "crimson" },
+                      { hex: "#334155", name: "slate" }
+                    ].map((c) => (
+                      <button
+                        key={c.hex}
+                        onClick={() => setExportAccentColor(c.hex)}
+                        className={`h-7 w-7 rounded-full transition-all active:scale-90 relative ${
+                          exportAccentColor === c.hex
+                            ? "ring-2 ring-[#c084fc] ring-offset-2 ring-offset-black scale-110"
+                            : "opacity-70 hover:opacity-100"
+                        }`}
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section 3: Document Metadata Inputs */}
+                <div className="space-y-3.5 border-t border-white/[0.05] pt-4">
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block mb-1">Document Details</label>
+                  
+                  <div>
+                    <input
+                      type="text"
+                      value={exportTitle}
+                      onChange={(e) => setExportTitle(e.target.value)}
+                      placeholder="Document Title"
+                      className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#c084fc]"
+                    />
+                  </div>
+
+                  {(exportTemplate === "cv" || exportTemplate === "report" || exportTemplate === "letter") && (
+                    <div>
+                      <input
+                        type="text"
+                        value={exportAuthor}
+                        onChange={(e) => setExportAuthor(e.target.value)}
+                        placeholder={exportTemplate === "cv" ? "Full Name (Header)" : "Author Name"}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#c084fc]"
+                      />
+                    </div>
+                  )}
+
+                  {(exportTemplate === "cv" || exportTemplate === "letter") && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="email"
+                        value={exportEmail}
+                        onChange={(e) => setExportEmail(e.target.value)}
+                        placeholder="Email Address"
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#c084fc]"
+                      />
+                      <input
+                        type="text"
+                        value={exportPhone}
+                        onChange={(e) => setExportPhone(e.target.value)}
+                        placeholder="Phone Number"
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#c084fc]"
+                      />
+                    </div>
+                  )}
+
+                  {exportTemplate === "cv" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={exportGithub}
+                        onChange={(e) => setExportGithub(e.target.value)}
+                        placeholder="GitHub Username"
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#c084fc]"
+                      />
+                      <input
+                        type="text"
+                        value={exportLinkedin}
+                        onChange={(e) => setExportLinkedin(e.target.value)}
+                        placeholder="LinkedIn Username"
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#c084fc]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 4: Live Editor Panel */}
+                <div className="border-t border-white/[0.05] pt-4 flex flex-col flex-1">
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block mb-2 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#c084fc]" /> Document Content Editor
+                  </label>
+                  <textarea
+                    value={exportText}
+                    onChange={(e) => setExportText(e.target.value)}
+                    className="w-full min-h-[220px] lg:flex-grow bg-white/[0.01] border border-white/10 rounded-xl p-3 text-xs sm:text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-[#c084fc] resize-y"
+                    placeholder="Enter document text content..."
+                  />
+                </div>
+
+              </div>
+
+              {/* Right Column: Premium Live A4 Preview Sheet */}
+              <div className="w-full lg:w-[55%] p-6 bg-zinc-950 overflow-y-auto flex justify-center items-start border-t lg:border-t-0 border-white/10">
+                <div className="w-full max-w-[550px] aspect-[1/1.414] bg-white shadow-2xl rounded-sm p-8 sm:p-12 text-[#1e293b] select-none flex flex-col border border-zinc-200 transition-all duration-300 relative overflow-hidden">
+                  
+                  {/* Dynamic Top Border Accent */}
+                  <div className="absolute top-0 left-0 right-0 h-1.5" style={{ backgroundColor: exportAccentColor }} />
+
+                  {/* Render Live Preview Content */}
+                  {exportTemplate === "cv" ? (
+                    // CV Preview Layout
+                    <div className="space-y-4 text-xs font-serif" style={{ fontFamily: "Georgia, serif" }}>
+                      <div className="text-center space-y-1 pb-3 border-b border-zinc-200">
+                        <h2 className="text-xl font-bold tracking-tight uppercase" style={{ color: exportAccentColor }}>
+                          {exportAuthor || "TAXA Applicant"}
+                        </h2>
+                        <p className="text-[9px] text-zinc-500 font-sans tracking-wide">
+                          {[
+                            exportEmail,
+                            exportPhone,
+                            exportGithub,
+                            exportLinkedin
+                          ].filter(Boolean).join("   |   ")}
+                        </p>
+                      </div>
+
+                      <div className="space-y-3.5 text-[10px] leading-relaxed text-zinc-700">
+                        {exportText.split("\n").map((p, idx) => {
+                          const line = p.trim();
+                          if (!line) return null;
+                          if (line.startsWith("# ") || line.startsWith("## ")) {
+                            return (
+                              <h4 
+                                key={idx} 
+                                className="text-[11px] font-bold border-b border-zinc-100 pb-0.5 mt-3 uppercase tracking-wider font-sans" 
+                                style={{ color: exportAccentColor }}
+                              >
+                                {cleanMarkdownSymbols(line.replace(/^##?\s+/, ""))}
+                              </h4>
+                            );
+                          }
+                          if (line.startsWith("### ")) {
+                            return (
+                              <h5 key={idx} className="font-bold text-[10px] text-zinc-900 mt-1">
+                                {cleanMarkdownSymbols(line.replace(/^###\s+/, ""))}
+                              </h5>
+                            );
+                          }
+                          if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ")) {
+                            return (
+                              <div key={idx} className="flex items-start gap-1.5 pl-2">
+                                <span className="h-1 w-1 rounded-full bg-zinc-400 mt-1.5 shrink-0" />
+                                <span>{cleanMarkdownSymbols(line.replace(/^[-*•]\s+/, ""))}</span>
+                              </div>
+                            );
+                          }
+                          return <p key={idx}>{cleanMarkdownSymbols(line)}</p>;
+                        })}
+                      </div>
+                    </div>
+                  ) : exportTemplate === "report" ? (
+                    // Report Preview Layout
+                    <div className="space-y-5 text-xs font-sans" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
+                      <div className="space-y-1.5 pb-4 border-b-2 border-zinc-200">
+                        <h2 className="text-lg font-bold uppercase tracking-tight leading-tight" style={{ color: exportAccentColor }}>
+                          {exportTitle}
+                        </h2>
+                        <div className="text-[9px] text-zinc-400 flex items-center justify-between">
+                          <span>Prepared by: {exportAuthor || "TAXA System"}</span>
+                          <span>Date: {new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3.5 text-[10px] leading-relaxed text-zinc-600">
+                        {exportText.split("\n").map((p, idx) => {
+                          const line = p.trim();
+                          if (!line) return null;
+                          if (line.startsWith("# ") || line.startsWith("## ")) {
+                            return (
+                              <h4 key={idx} className="text-xs font-bold mt-4" style={{ color: exportAccentColor }}>
+                                {cleanMarkdownSymbols(line.replace(/^##?\s+/, ""))}
+                              </h4>
+                            );
+                          }
+                          if (line.startsWith("### ")) {
+                            return (
+                              <h5 key={idx} className="font-bold text-[10.5px] text-zinc-800 mt-2">
+                                {cleanMarkdownSymbols(line.replace(/^###\s+/, ""))}
+                              </h5>
+                            );
+                          }
+                          if (line.startsWith("> ")) {
+                            return (
+                              <div key={idx} className="pl-3 border-l-2 py-0.5 my-1.5 text-zinc-500 italic bg-zinc-50/50" style={{ borderColor: exportAccentColor }}>
+                                {cleanMarkdownSymbols(line.replace(/^>\s+/, ""))}
+                              </div>
+                            );
+                          }
+                          if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ")) {
+                            return (
+                              <div key={idx} className="flex items-start gap-1.5 pl-2">
+                                <span className="h-1 w-1 bg-zinc-500 mt-1.5 shrink-0" />
+                                <span>{cleanMarkdownSymbols(line.replace(/^[-*•]\s+/, ""))}</span>
+                              </div>
+                            );
+                          }
+                          return <p key={idx}>{cleanMarkdownSymbols(line)}</p>;
+                        })}
+                      </div>
+                    </div>
+                  ) : exportTemplate === "letter" ? (
+                    // Cover Letter Preview Layout
+                    <div className="space-y-4 text-xs font-serif" style={{ fontFamily: "Georgia, serif" }}>
+                      <div className="text-right space-y-0.5 text-[9px] text-zinc-400">
+                        <p className="font-bold text-zinc-700">{exportAuthor || "Sender"}</p>
+                        {exportEmail && <p>{exportEmail}</p>}
+                        {exportPhone && <p>{exportPhone}</p>}
+                        <p>{new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="font-bold text-zinc-800 text-[9.5px]">To Whom It May Concern,</p>
+                        <p className="text-zinc-500 text-[8.5px]">Hiring and Admissions Committee</p>
+                      </div>
+
+                      <h4 className="text-[10px] font-bold uppercase tracking-wide border-b border-zinc-100 pb-1" style={{ color: exportAccentColor }}>
+                        Subject: Application regarding {exportTitle}
+                      </h4>
+
+                      <div className="space-y-3 text-[9.5px] leading-relaxed text-zinc-600">
+                        {exportText.split("\n").map((p, idx) => {
+                          const line = p.trim();
+                          if (!line) return <div key={idx} className="h-1.5" />;
+                          return <p key={idx}>{cleanMarkdownSymbols(line)}</p>;
+                        })}
+                      </div>
+
+                      <div className="pt-4 space-y-3">
+                        <p className="font-bold text-zinc-800">Sincerely,</p>
+                        <p className="font-bold text-zinc-950 text-[10px]">{exportAuthor || "TAXA Client"}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    // Plain Monospace Preview Layout
+                    <div className="font-mono text-[9px] leading-relaxed text-zinc-700 whitespace-pre-wrap select-none overflow-hidden h-full">
+                      {exportText}
+                    </div>
+                  )}
+
+                  {/* Absolute Footer Page Tag */}
+                  <div className="absolute bottom-6 left-0 right-0 text-center text-[8px] text-zinc-400 font-sans uppercase tracking-widest">
+                    Page 1 of 1
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Bottom Actions Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-white/10 bg-[#12081d]/60 shrink-0">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                Generated documents are 100% free and client-compiled
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => exportToTXT(exportTitle, exportText)}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl h-9 text-xs border-white/10 text-zinc-300 bg-white/[0.02] hover:bg-white/[0.04]"
+                >
+                  Download TXT
+                </Button>
+                <Button
+                  onClick={() => exportToDOCX(exportTitle, exportText, exportTemplate, {
+                    author: exportAuthor,
+                    email: exportEmail,
+                    phone: exportPhone,
+                    github: exportGithub,
+                    linkedin: exportLinkedin,
+                    accentColor: exportAccentColor
+                  })}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl h-9 text-xs border-[#c084fc]/20 text-zinc-200 bg-[#7b2cbf]/10 hover:bg-[#7b2cbf]/20"
+                >
+                  Download DOCX
+                </Button>
+                <Button
+                  onClick={() => exportToPDF(exportTitle, exportText, exportTemplate, {
+                    author: exportAuthor,
+                    email: exportEmail,
+                    phone: exportPhone,
+                    github: exportGithub,
+                    linkedin: exportLinkedin,
+                    accentColor: exportAccentColor
+                  })}
+                  size="sm"
+                  className="rounded-xl h-9 text-xs font-bold bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] text-white hover:from-[#7b2cbf] hover:to-[#c084fc] transition-all active:scale-95 shadow-md border border-[#c084fc]/35"
+                >
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                  Download PDF
+                </Button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Help Center Dialog Overlay */}
       {showHelpModal && (
