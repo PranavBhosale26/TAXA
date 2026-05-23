@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "TAXA | The Data Sculptor Workspace",
   description: "Professional Agentic Data Sculpting Workspace powered by Gemini 2.5 and Next.js",
+  verification: {
+    google: "cec4c77793531f89",
+  },
 };
 
 export default function RootLayout({
