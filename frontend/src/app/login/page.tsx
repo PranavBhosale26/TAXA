@@ -72,8 +72,22 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
     
+    // Strict password complexity enforcement during registration to prevent data breach warnings
+    if (!isLogin) {
+      if (password.length < 8) {
+        setError("🛡️ SECURE PORTAL GATEWAY: Password must be at least 8 characters long to protect your secure workspace.");
+        return;
+      }
+      const hasNumber = /\d/.test(password);
+      const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+      if (!hasNumber || !hasSpecial) {
+        setError("🛡️ SECURE PORTAL GATEWAY: Password must contain at least one number and one special character (e.g., !, @, #, etc.) to prevent data breach exposure.");
+        return;
+      }
+    }
+
+    setLoading(true);
     const endpoint = isLogin ? "/api/login" : "/api/register";
     try {
       const apiBaseUrl = getApiBaseUrl();
@@ -234,6 +248,8 @@ export default function LoginPage() {
               <User className="w-3.5 h-3.5 text-[#c084fc]" /> Username
             </label>
             <Input 
+              name="username"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter your username"
@@ -248,6 +264,8 @@ export default function LoginPage() {
               <Lock className="w-3.5 h-3.5 text-[#c084fc]" /> Password
             </label>
             <Input 
+              name="password"
+              autoComplete={isLogin ? "current-password" : "new-password"}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
