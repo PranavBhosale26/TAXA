@@ -1722,7 +1722,7 @@ export default function ChatPage() {
                         <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
                           <span>{m.role === 'user' ? getFriendlyName(userName) : 'TAXA'}</span>
                           {m.role === 'assistant' && (
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                               <button 
                                 onClick={() => handleSpeakMessage(m.content, i)}
                                 className="text-zinc-500 hover:text-[#c084fc] transition-colors"
