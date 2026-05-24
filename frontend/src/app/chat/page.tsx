@@ -32,7 +32,9 @@ import {
   Eye,
   EyeOff,
   Download,
-  Palette
+  Palette,
+  Copy,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -91,6 +93,7 @@ export default function ChatPage() {
   };
 
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   
   // Voice states
   const [isListening, setIsListening] = useState(false);
@@ -1722,28 +1725,28 @@ export default function ChatPage() {
                         <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
                           <span>{m.role === 'user' ? getFriendlyName(userName) : 'TAXA'}</span>
                           {m.role === 'assistant' && (
-                            <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                            <div className="flex items-center gap-2 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
                               <button 
                                 onClick={() => handleSpeakMessage(m.content, i)}
-                                className={`p-1.5 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
                                   theme === 'light'
                                     ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
                                     : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
                                 }`}
                                 title={speakingIdx === i ? "Stop Chisel Voice" : "Chisel Voice"}
                               >
-                                {speakingIdx === i ? <Square className="w-4.5 h-4.5 animate-pulse text-red-400" /> : <Volume2 className="w-4.5 h-4.5" />}
+                                {speakingIdx === i ? <Square className="w-5 h-5 animate-pulse text-red-400" /> : <Volume2 className="w-5 h-5" />}
                               </button>
                               <button 
                                 onClick={() => handleOpenExportWorkspace(m.content)}
-                                className={`p-1.5 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
                                   theme === 'light'
                                     ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
                                     : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
                                 }`}
                                 title="Export Document (PDF/DOCX)"
                               >
-                                <FileText className="w-4.5 h-4.5" />
+                                <FileText className="w-5 h-5" />
                               </button>
                             </div>
                           )}
@@ -1775,6 +1778,80 @@ export default function ChatPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* Premium Bottom Action Row */}
+                        {m.role === 'assistant' && (
+                          <div className="flex flex-wrap items-center gap-2.5 mt-3 px-1 w-full justify-start">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(m.content);
+                                setCopiedIdx(i);
+                                setTimeout(() => setCopiedIdx(null), 2000);
+                              }}
+                              className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                                theme === 'light'
+                                  ? copiedIdx === i
+                                    ? 'bg-green-500/10 border-green-500/20 text-green-600'
+                                    : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
+                                  : copiedIdx === i
+                                    ? 'bg-green-500/20 border-green-500/30 text-green-300'
+                                    : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
+                              }`}
+                              title="Copy response to clipboard"
+                            >
+                              {copiedIdx === i ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-green-500" />
+                                  <span>Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => handleSpeakMessage(m.content, i)}
+                              className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                                theme === 'light'
+                                  ? speakingIdx === i
+                                    ? 'bg-red-500/10 border-red-500/20 text-red-600 hover:bg-red-500/20'
+                                    : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
+                                  : speakingIdx === i
+                                    ? 'bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30'
+                                    : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
+                              }`}
+                              title={speakingIdx === i ? "Stop Speaking" : "Listen to Response"}
+                            >
+                              {speakingIdx === i ? (
+                                <>
+                                  <Square className="w-3.5 h-3.5 animate-pulse text-red-500" />
+                                  <span>Stop Voice</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Volume2 className="w-3.5 h-3.5" />
+                                  <span>Speak</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => handleOpenExportWorkspace(m.content)}
+                              className={`px-4 py-2 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-2 shadow-lg hover:shadow-[#7b2cbf]/10 ${
+                                theme === 'light'
+                                  ? 'bg-[#7b2cbf] border-[#7b2cbf]/20 text-white hover:bg-[#8f3ad6] hover:scale-[1.02]'
+                                  : 'bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] border-[#7b2cbf]/40 text-white hover:brightness-110 hover:scale-[1.02]'
+                              }`}
+                              title="Export Document as PDF, DOCX, or TXT"
+                            >
+                              <FileText className="w-4 h-4 text-white" />
+                              <span>Export PDF / DOCX</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   ))}
