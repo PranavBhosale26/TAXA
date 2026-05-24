@@ -225,7 +225,7 @@ export default function Home() {
       
       {/* Sleek Floating Header Navigation */}
       <header className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-xl border-b transition-all duration-300 ${resolvedTheme === 'light' ? 'bg-[#fbfafc]/75 border-black/[0.04]' : 'bg-[#07040a]/65 border-white/[0.03]'}`}>
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3.5 group">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#7b2cbf] to-[#c084fc] flex items-center justify-center border border-white/10 shadow-[0_0_15px_rgba(157,78,221,0.25)]">
               <Cpu className="w-4.5 h-4.5 text-white" />
@@ -249,7 +249,7 @@ export default function Home() {
                   setUserName("");
                 }}
                 size="sm" 
-                className="rounded-xl bg-red-950/20 border border-red-500/20 hover:bg-red-500/10 text-red-400 font-bold text-xs tracking-wider uppercase px-5 py-2 h-9 transition-all active:scale-95"
+                className="hidden sm:inline-flex rounded-xl bg-red-950/20 border border-red-500/20 hover:bg-red-500/10 text-red-400 font-bold text-xs tracking-wider uppercase px-5 py-2 h-9 transition-all active:scale-95"
               >
                 Sign Out
               </Button>
@@ -337,6 +337,22 @@ export default function Home() {
                         </span>
                       </div>
                     </div>
+
+                    {userName && (
+                      <div className="mt-4 pt-4 border-t border-white/5 sm:hidden">
+                        <button
+                          onClick={() => {
+                            localStorage.removeItem("omnimind_token");
+                            localStorage.removeItem("omnimind_user");
+                            setUserName("");
+                            setShowSettings(false);
+                          }}
+                          className="w-full py-2.5 rounded-xl bg-red-950/20 border border-red-500/20 hover:bg-red-500/10 text-red-400 font-bold text-xs tracking-wider uppercase transition-all active:scale-95 text-center"
+                        >
+                          Sign Out
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -344,7 +360,8 @@ export default function Home() {
 
             <Link href={userName ? "/chat" : "/login"}>
               <Button size="sm" className={`rounded-xl transition-all active:scale-95 font-bold text-xs tracking-wider uppercase px-5 py-2 h-9 ${resolvedTheme === 'light' ? 'bg-black/5 border border-black/10 hover:bg-[#7b2cbf]/10 hover:border-[#7b2cbf]/20 text-[#1f1a24]' : 'bg-white/5 border border-white/10 hover:bg-[#7b2cbf]/20 hover:border-[#c084fc]/30 text-white'}`}>
-                {userName ? "Enter Workspace" : "Access Workspace"}
+                <span className="hidden sm:inline">{userName ? "Enter " : "Access "}</span>
+                <span>Workspace</span>
               </Button>
             </Link>
           </div>
@@ -371,7 +388,7 @@ export default function Home() {
             {/* Glowing Hero Title */}
             <motion.h1 
               variants={itemVariants}
-              className={`bg-gradient-to-br bg-clip-text pb-6 text-6xl font-black tracking-tight text-transparent sm:text-8xl lg:text-9xl relative uppercase transition-all duration-500 ${resolvedTheme === 'light' ? 'from-[#1f1a24] via-[#7b2cbf] to-[#c084fc]' : 'from-white via-[#f3e8ff] to-[#c084fc]'}`}
+              className={`bg-gradient-to-br bg-clip-text pb-6 text-5xl font-black tracking-tight text-transparent sm:text-8xl lg:text-9xl relative uppercase transition-all duration-500 ${resolvedTheme === 'light' ? 'from-[#1f1a24] via-[#7b2cbf] to-[#c084fc]' : 'from-white via-[#f3e8ff] to-[#c084fc]'}`}
             >
               T A X A
               <div className="absolute left-1/2 bottom-[-10px] -translate-x-1/2 w-40 h-[3px] bg-gradient-to-r from-transparent via-[#9d4edd]/60 to-transparent blur-[1px]"></div>

@@ -1115,11 +1115,13 @@ export default function ChatPage() {
 
       {/* Sidebar Panel - Responsive & Collapsible */}
       <div 
-        className={`relative top-0 bottom-0 left-0 z-40 flex w-72 flex-col shrink-0 border-r h-screen transition-all duration-300 ease-in-out ${
+        className={`fixed md:relative top-0 bottom-0 left-0 z-40 flex w-72 flex-col shrink-0 border-r h-screen transition-all duration-300 ease-in-out ${
           theme === 'light'
-            ? 'border-[#7b2cbf]/10 bg-[#f3eff7]/90'
-            : 'border-white/[0.04] bg-[#07040a]/90'
-        } backdrop-blur-3xl ${isSidebarCollapsed ? "-ml-72 border-r-0" : "ml-0"}`}
+            ? 'border-[#7b2cbf]/10 bg-[#f3eff7]/95 md:bg-[#f3eff7]/90'
+            : 'border-white/[0.04] bg-[#07040a]/95 md:bg-[#07040a]/90'
+        } backdrop-blur-3xl ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        } ${isSidebarCollapsed ? "md:-ml-72 md:border-r-0" : "md:ml-0"}`}
       >
         {/* Core TAXA Logo */}
         <div className={`p-5 flex items-center justify-between border-b shrink-0 ${
@@ -1444,8 +1446,47 @@ export default function ChatPage() {
         theme === 'light' ? 'bg-[#fbfafc]' : 'bg-[#030006]'
       }`}>
         
+        {/* Mobile Header Banner */}
+        <div className={`md:hidden flex h-14 items-center justify-between px-4 border-b shrink-0 z-30 ${
+          theme === 'light'
+            ? 'border-[#7b2cbf]/10 bg-[#fbfafc]/80 backdrop-blur-lg'
+            : 'border-white/[0.03] bg-[#030006]/80 backdrop-blur-lg'
+        }`}>
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className={`p-2 rounded-xl transition-colors ${
+              theme === 'light' ? 'hover:bg-[#7b2cbf]/5 text-zinc-600' : 'hover:bg-white/5 text-zinc-400'
+            }`}
+            title="Open Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          
+          <span className={`font-extrabold text-sm tracking-widest uppercase ${
+            theme === 'light' ? 'text-[#1a1523]' : 'text-white'
+          }`}>
+            TAXA
+          </span>
+          
+          <div className="flex items-center gap-1">
+            <button
+              onClick={openVoicePortal}
+              className={`p-2 rounded-xl transition-colors relative ${
+                theme === 'light' ? 'hover:bg-[#7b2cbf]/5 text-zinc-600' : 'hover:bg-white/5 text-zinc-400'
+              }`}
+              title="Voice Assistant"
+            >
+              <Headphones className="w-5 h-5 text-[#c084fc]" />
+              <span className="absolute top-1 right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+              </span>
+            </button>
+          </div>
+        </div>
+        
         {/* Top Floating Action Bar */}
-        <div className="absolute top-5 right-5 z-30 flex gap-3 items-center">
+        <div className="hidden md:flex absolute top-5 right-5 z-30 gap-3 items-center">
           <button
             onClick={openVoicePortal}
             className="relative flex items-center gap-2.5 px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] hover:from-[#8b3cd3] hover:to-[#a85cfc] border border-[#c084fc]/40 rounded-full shadow-[0_0_15px_rgba(123,44,191,0.3)] hover:shadow-[0_0_25px_rgba(123,44,191,0.5)] transition-all active:scale-95 group overflow-hidden"
@@ -1464,7 +1505,7 @@ export default function ChatPage() {
         
         {/* Sidebar Expand Trigger (visible when collapsed) */}
         {isSidebarCollapsed && (
-          <div className="absolute top-5 left-5 z-50 flex animate-in fade-in duration-300">
+          <div className="hidden md:flex absolute top-5 left-5 z-50 animate-in fade-in duration-300">
             <button
               onClick={() => setIsSidebarCollapsed(false)}
               className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#7b2cbf] to-[#c084fc] text-white flex items-center justify-center shadow-[0_0_15px_rgba(157,78,221,0.3)] border border-[#e0aaff]/15 hover:opacity-85 transition-opacity active:scale-95 shrink-0"
