@@ -24,6 +24,23 @@ export const cleanMarkdownSymbols = (text: string): string => {
 };
 
 /**
+ * Sanitizes text to remove emojis and replace unsupported smart quotes/special dashes
+ * to prevent jsPDF WinAnsiEncoding rendering crashes.
+ */
+export const sanitizeTextForPDF = (text: string): string => {
+  if (!text) return "";
+  return text
+    // Normalize smart quotes and common high-unicode punctuation
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u2022/g, "-") // bullet point
+    .replace(/\u2026/g, "...") // ellipsis
+    // Strip standard emojis and pictographs
+    .replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, "");
+};
+
+/**
  * Parses markdown to extract dynamic CV metadata if present in the text
  */
 export const autoExtractMetadata = (content: string) => {
@@ -78,383 +95,427 @@ export const exportToPDF = (
   template: TemplateType = "plain",
   options: ExporterOptions = {}
 ): void => {
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4"
-  });
+  // Upfront sanitization of title and content to prevent jsPDF WinAnsiEncoding crashes
+  const sanitizedTitle = sanitizeTextForPDF(title);
+  const sanitizedContent = sanitizeTextForPDF(content);
 
-  const pageHeight = 297;
-  const pageWidth = 210;
-  const leftMargin = 20;
-  const rightMargin = 20;
-  const maxLineWidth = pageWidth - leftMargin - rightMargin; // 170mm usable width
-
-  let y = 20; // Starting Y margin
-  let pageNum = 1;
-
-  const accentColor = options.accentColor || "#7b2cbf";
-  
-  // Convert Hex to RGB
-  const hexToRgb = (hex: string) => {
-    const r = parseInt(hex.slice(1, 3), 16) || 123;
-    const g = parseInt(hex.slice(3, 5), 16) || 44;
-    const b = parseInt(hex.slice(5, 7), 16) || 191;
-    return { r, g, b };
-  };
-  const rgb = hexToRgb(accentColor);
-
-  // Helper to ensure height checks and automatic pagination
-  const checkPageOverflow = (neededHeight: number) => {
-    if (y + neededHeight > 275) {
-      // Draw footer page number before breaking
-      doc.setFont("Helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(120, 120, 120);
-      doc.text(`Page ${pageNum}`, pageWidth / 2, 287, { align: "center" });
-
-      doc.addPage();
-      pageNum++;
-      y = 20; // Reset top margin on new page
-    }
-  };
-
-  // Helper to draw horizontal rules
-  const drawDivider = (height: number = 0.3) => {
-    checkPageOverflow(height + 2);
-    doc.setDrawColor(rgb.r, rgb.g, rgb.b);
-    doc.setLineWidth(height);
-    doc.line(leftMargin, y, pageWidth - rightMargin, y);
-    y += height + 4;
-  };
-
-  // Layout rendering by template types
-  if (template === "cv") {
-    // ----------------------------------------------------
-    // CV / RESUME TEMPLATE
-    // ----------------------------------------------------
-    doc.setFont("times", "bold");
-    doc.setFontSize(22);
-    doc.setTextColor(rgb.r, rgb.g, rgb.b);
-    
-    // Centered Name Header
-    const displayName = options.author || title || "TAXA Applicant";
-    doc.text(displayName, pageWidth / 2, y, { align: "center" });
-    y += 8;
-
-    // Contact Details Line
-    doc.setFont("times", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(80, 80, 80);
-
-    const contactParts = [];
-    if (options.email) contactParts.push(options.email);
-    if (options.phone) contactParts.push(options.phone);
-    if (options.github) contactParts.push(options.github);
-    if (options.linkedin) contactParts.push(options.linkedin);
-
-    const contactStr = contactParts.join("  |  ");
-    if (contactStr) {
-      doc.text(contactStr, pageWidth / 2, y, { align: "center" });
-      y += 6;
-    }
-
-    // Top Divider Line
-    drawDivider(0.5);
-
-    // Parse CV text body
-    const paragraphs = content.split("\n");
-    for (let p of paragraphs) {
-      const line = p.trim();
-      if (!line) {
-        y += 2; // Spacer
-        continue;
-      }
-
-      // Check section header (e.g. ## EDUCATION)
-      if (line.startsWith("# ") || line.startsWith("## ")) {
-        const headerText = cleanMarkdownSymbols(
-          line.replace(/^##?\s+/, "")
-        ).toUpperCase();
-        
-        y += 3;
-        checkPageOverflow(12);
-        
-        doc.setFont("times", "bold");
-        doc.setFontSize(12.5);
-        doc.setTextColor(rgb.r, rgb.g, rgb.b);
-        doc.text(headerText, leftMargin, y);
-        y += 3;
-        
-        // Custom section underlines
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.2);
-        doc.line(leftMargin, y, pageWidth - rightMargin, y);
-        y += 5;
-      }
-      // Check subheader (e.g. ### Experience Item)
-      else if (line.startsWith("### ")) {
-        const subheaderText = cleanMarkdownSymbols(line.replace(/^###\s+/, ""));
-        checkPageOverflow(7);
-        doc.setFont("times", "bold");
-        doc.setFontSize(10.5);
-        doc.setTextColor(30, 30, 30);
-        doc.text(subheaderText, leftMargin, y);
-        y += 5;
-      }
-      // Check list bullets (e.g. - experience description)
-      else if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ")) {
-        const bulletText = cleanMarkdownSymbols(line.replace(/^[-*•]\s+/, ""));
-        doc.setFont("times", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(60, 60, 60);
-
-        const wrapped = doc.splitTextToSize(bulletText, maxLineWidth - 6);
-        for (let i = 0; i < wrapped.length; i++) {
-          checkPageOverflow(5);
-          if (i === 0) {
-            // Draw a nice filled dot bullet
-            doc.setFillColor(rgb.r, rgb.g, rgb.b);
-            doc.circle(leftMargin + 2, y - 1.2, 0.7, "F");
-          }
-          doc.text(wrapped[i], leftMargin + 6, y);
-          y += 4.8;
-        }
-      }
-      // Standard paragraph text
-      else {
-        const cleanText = cleanMarkdownSymbols(line);
-        doc.setFont("times", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(60, 60, 60);
-
-        const wrapped = doc.splitTextToSize(cleanText, maxLineWidth);
-        for (const lineText of wrapped) {
-          checkPageOverflow(5);
-          doc.text(lineText, leftMargin, y);
-          y += 4.8;
-        }
-      }
-    }
-
-  } else if (template === "report") {
-    // ----------------------------------------------------
-    // FORMAL PROJECT REPORT TEMPLATE
-    // ----------------------------------------------------
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(22);
-    doc.setTextColor(rgb.r, rgb.g, rgb.b);
-    
-    // Left-aligned styled Header block
-    doc.text(title, leftMargin, y);
-    y += 6;
-
-    // Report Metadata block
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(110, 110, 110);
-    const dateStr = new Date().toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric"
+  try {
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4"
     });
-    const authorStr = options.author ? `Author: ${options.author}` : "Prepared by TAXA AI Engine";
-    doc.text(`${authorStr}   |   Date: ${dateStr}`, leftMargin, y);
-    y += 4;
 
-    drawDivider(0.6);
+    const pageHeight = 297;
+    const pageWidth = 210;
+    const leftMargin = 20;
+    const rightMargin = 20;
+    const maxLineWidth = pageWidth - leftMargin - rightMargin; // 170mm usable width
 
-    const paragraphs = content.split("\n");
-    for (let p of paragraphs) {
-      const line = p.trim();
-      if (!line) {
-        y += 2.5;
-        continue;
+    let y = 20; // Starting Y margin
+    let pageNum = 1;
+
+    const accentColor = options.accentColor || "#7b2cbf";
+    
+    // Convert Hex to RGB
+    const hexToRgb = (hex: string) => {
+      const r = parseInt(hex.slice(1, 3), 16) || 123;
+      const g = parseInt(hex.slice(3, 5), 16) || 44;
+      const b = parseInt(hex.slice(5, 7), 16) || 191;
+      return { r, g, b };
+    };
+    const rgb = hexToRgb(accentColor);
+
+    // Helper to ensure height checks and automatic pagination
+    const checkPageOverflow = (neededHeight: number) => {
+      if (y + neededHeight > 275) {
+        // Draw footer page number before breaking
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(120, 120, 120);
+        doc.text(`Page ${pageNum}`, pageWidth / 2, 287, { align: "center" });
+
+        doc.addPage();
+        pageNum++;
+        y = 20; // Reset top margin on new page
       }
+    };
 
-      // Check section header
-      if (line.startsWith("# ") || line.startsWith("## ")) {
-        const headerText = cleanMarkdownSymbols(line.replace(/^##?\s+/, ""));
-        y += 4;
-        checkPageOverflow(12);
-        
-        doc.setFont("Helvetica", "bold");
-        doc.setFontSize(13.5);
-        doc.setTextColor(rgb.r, rgb.g, rgb.b);
-        doc.text(headerText, leftMargin, y);
+    // Helper to draw horizontal rules
+    const drawDivider = (height: number = 0.3) => {
+      checkPageOverflow(height + 2);
+      doc.setDrawColor(rgb.r, rgb.g, rgb.b);
+      doc.setLineWidth(height);
+      doc.line(leftMargin, y, pageWidth - rightMargin, y);
+      y += height + 4;
+    };
+
+    // Layout rendering by template types
+    if (template === "cv") {
+      // ----------------------------------------------------
+      // CV / RESUME TEMPLATE
+      // ----------------------------------------------------
+      doc.setFont("times", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(rgb.r, rgb.g, rgb.b);
+      
+      // Centered Name Header
+      const displayName = sanitizeTextForPDF(options.author || "") || sanitizedTitle || "TAXA Applicant";
+      doc.text(displayName, pageWidth / 2, y, { align: "center" });
+      y += 8;
+
+      // Contact Details Line
+      doc.setFont("times", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(80, 80, 80);
+
+      const contactParts = [];
+      if (options.email) contactParts.push(sanitizeTextForPDF(options.email));
+      if (options.phone) contactParts.push(sanitizeTextForPDF(options.phone));
+      if (options.github) contactParts.push(sanitizeTextForPDF(options.github));
+      if (options.linkedin) contactParts.push(sanitizeTextForPDF(options.linkedin));
+
+      const contactStr = contactParts.join("  |  ");
+      if (contactStr) {
+        doc.text(contactStr, pageWidth / 2, y, { align: "center" });
         y += 6;
       }
-      // Check subheader
-      else if (line.startsWith("### ")) {
-        const subheaderText = cleanMarkdownSymbols(line.replace(/^###\s+/, ""));
-        checkPageOverflow(8);
-        doc.setFont("Helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(50, 50, 50);
-        doc.text(subheaderText, leftMargin, y);
-        y += 5.5;
-      }
-      // Check blockquote (e.g. > Warning / Quote)
-      else if (line.startsWith("> ")) {
-        const quoteText = cleanMarkdownSymbols(line.replace(/^>\s+/, ""));
-        doc.setFont("Helvetica", "italic");
-        doc.setFontSize(9.5);
-        doc.setTextColor(rgb.r, rgb.g, rgb.b);
 
-        const wrapped = doc.splitTextToSize(quoteText, maxLineWidth - 10);
-        checkPageOverflow(wrapped.length * 5 + 4);
-        
-        // Draw vertical quote bar
-        doc.setDrawColor(rgb.r, rgb.g, rgb.b);
-        doc.setLineWidth(0.8);
-        doc.line(leftMargin + 2, y - 2, leftMargin + 2, y + (wrapped.length * 4.5) - 2);
+      // Top Divider Line
+      drawDivider(0.5);
 
-        for (const lineText of wrapped) {
-          doc.text(lineText, leftMargin + 6, y);
-          y += 4.5;
+      // Parse CV text body
+      const paragraphs = sanitizedContent.split("\n");
+      for (let p of paragraphs) {
+        const line = p.trim();
+        if (!line) {
+          y += 2; // Spacer
+          continue;
         }
-        y += 2;
-      }
-      // Check list bullets
-      else if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ")) {
-        const bulletText = cleanMarkdownSymbols(line.replace(/^[-*•]\s+/, ""));
-        doc.setFont("Helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(60, 60, 60);
 
-        const wrapped = doc.splitTextToSize(bulletText, maxLineWidth - 6);
-        for (let i = 0; i < wrapped.length; i++) {
-          checkPageOverflow(5);
-          if (i === 0) {
-            doc.setFillColor(rgb.r, rgb.g, rgb.b);
-            doc.rect(leftMargin + 1.5, y - 2.2, 1.2, 1.2, "F"); // square bullet
+        // Check section header (e.g. ## EDUCATION)
+        if (line.startsWith("# ") || line.startsWith("## ")) {
+          const headerText = cleanMarkdownSymbols(
+            line.replace(/^##?\s+/, "")
+          ).toUpperCase();
+          
+          y += 3;
+          checkPageOverflow(12);
+          
+          doc.setFont("times", "bold");
+          doc.setFontSize(12.5);
+          doc.setTextColor(rgb.r, rgb.g, rgb.b);
+          doc.text(headerText, leftMargin, y);
+          y += 3;
+          
+          // Custom section underlines
+          doc.setDrawColor(220, 220, 220);
+          doc.setLineWidth(0.2);
+          doc.line(leftMargin, y, pageWidth - rightMargin, y);
+          y += 5;
+        }
+        // Check subheader (e.g. ### Experience Item)
+        else if (line.startsWith("### ")) {
+          const subheaderText = cleanMarkdownSymbols(line.replace(/^###\s+/, ""));
+          checkPageOverflow(7);
+          doc.setFont("times", "bold");
+          doc.setFontSize(10.5);
+          doc.setTextColor(30, 30, 30);
+          doc.text(subheaderText, leftMargin, y);
+          y += 5;
+        }
+        // Check list bullets (e.g. - experience description)
+        else if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ")) {
+          const bulletText = cleanMarkdownSymbols(line.replace(/^[-*•]\s+/, ""));
+          doc.setFont("times", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(60, 60, 60);
+
+          const wrapped = doc.splitTextToSize(bulletText, maxLineWidth - 6);
+          for (let i = 0; i < wrapped.length; i++) {
+            checkPageOverflow(5);
+            if (i === 0) {
+              // Draw a nice filled dot bullet
+              doc.setFillColor(rgb.r, rgb.g, rgb.b);
+              doc.circle(leftMargin + 2, y - 1.2, 0.7, "F");
+            }
+            doc.text(wrapped[i], leftMargin + 6, y);
+            y += 4.8;
           }
-          doc.text(wrapped[i], leftMargin + 6, y);
-          y += 4.8;
+        }
+        // Standard paragraph text
+        else {
+          const cleanText = cleanMarkdownSymbols(line);
+          doc.setFont("times", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(60, 60, 60);
+
+          const wrapped = doc.splitTextToSize(cleanText, maxLineWidth);
+          for (const lineText of wrapped) {
+            checkPageOverflow(5);
+            doc.text(lineText, leftMargin, y);
+            y += 4.8;
+          }
         }
       }
-      // Standard text
-      else {
+
+    } else if (template === "report") {
+      // ----------------------------------------------------
+      // FORMAL PROJECT REPORT TEMPLATE
+      // ----------------------------------------------------
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(rgb.r, rgb.g, rgb.b);
+      
+      // Left-aligned styled Header block
+      doc.text(sanitizedTitle, leftMargin, y);
+      y += 6;
+
+      // Report Metadata block
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(110, 110, 110);
+      const dateStr = new Date().toLocaleDateString("en-US", {
+        year: "numeric", month: "long", day: "numeric"
+      });
+      const authorStr = options.author ? `Author: ${sanitizeTextForPDF(options.author)}` : "Prepared by TAXA AI Engine";
+      doc.text(`${authorStr}   |   Date: ${dateStr}`, leftMargin, y);
+      y += 4;
+
+      drawDivider(0.6);
+
+      const paragraphs = sanitizedContent.split("\n");
+      for (let p of paragraphs) {
+        const line = p.trim();
+        if (!line) {
+          y += 2.5;
+          continue;
+        }
+
+        // Check section header
+        if (line.startsWith("# ") || line.startsWith("## ")) {
+          const headerText = cleanMarkdownSymbols(line.replace(/^##?\s+/, ""));
+          y += 4;
+          checkPageOverflow(12);
+          
+          doc.setFont("Helvetica", "bold");
+          doc.setFontSize(13.5);
+          doc.setTextColor(rgb.r, rgb.g, rgb.b);
+          doc.text(headerText, leftMargin, y);
+          y += 6;
+        }
+        // Check subheader
+        else if (line.startsWith("### ")) {
+          const subheaderText = cleanMarkdownSymbols(line.replace(/^###\s+/, ""));
+          checkPageOverflow(8);
+          doc.setFont("Helvetica", "bold");
+          doc.setFontSize(11);
+          doc.setTextColor(50, 50, 50);
+          doc.text(subheaderText, leftMargin, y);
+          y += 5.5;
+        }
+        // Check blockquote (e.g. > Warning / Quote)
+        else if (line.startsWith("> ")) {
+          const quoteText = cleanMarkdownSymbols(line.replace(/^>\s+/, ""));
+          doc.setFont("Helvetica", "italic");
+          doc.setFontSize(9.5);
+          doc.setTextColor(rgb.r, rgb.g, rgb.b);
+
+          const wrapped = doc.splitTextToSize(quoteText, maxLineWidth - 10);
+          checkPageOverflow(wrapped.length * 5 + 4);
+          
+          // Draw vertical quote bar
+          doc.setDrawColor(rgb.r, rgb.g, rgb.b);
+          doc.setLineWidth(0.8);
+          doc.line(leftMargin + 2, y - 2, leftMargin + 2, y + (wrapped.length * 4.5) - 2);
+
+          for (const lineText of wrapped) {
+            doc.text(lineText, leftMargin + 6, y);
+            y += 4.5;
+          }
+          y += 2;
+        }
+        // Check list bullets
+        else if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ")) {
+          const bulletText = cleanMarkdownSymbols(line.replace(/^[-*•]\s+/, ""));
+          doc.setFont("Helvetica", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(60, 60, 60);
+
+          const wrapped = doc.splitTextToSize(bulletText, maxLineWidth - 6);
+          for (let i = 0; i < wrapped.length; i++) {
+            checkPageOverflow(5);
+            if (i === 0) {
+              doc.setFillColor(rgb.r, rgb.g, rgb.b);
+              doc.rect(leftMargin + 1.5, y - 2.2, 1.2, 1.2, "F"); // square bullet
+            }
+            doc.text(wrapped[i], leftMargin + 6, y);
+            y += 4.8;
+          }
+        }
+        // Standard text
+        else {
+          const cleanText = cleanMarkdownSymbols(line);
+          doc.setFont("Helvetica", "normal");
+          doc.setFontSize(10);
+          doc.setTextColor(60, 60, 60);
+
+          const wrapped = doc.splitTextToSize(cleanText, maxLineWidth);
+          for (const lineText of wrapped) {
+            checkPageOverflow(5);
+            doc.text(lineText, leftMargin, y);
+            y += 4.8;
+          }
+        }
+      }
+
+    } else if (template === "letter") {
+      // ----------------------------------------------------
+      // FORMAL COVER LETTER TEMPLATE
+      // ----------------------------------------------------
+      doc.setFont("times", "normal");
+      
+      // Sender info top-right aligned
+      doc.setFontSize(9.5);
+      doc.setTextColor(80, 80, 80);
+      const dateStr = new Date().toLocaleDateString("en-US", {
+        year: "numeric", month: "long", day: "numeric"
+      });
+      
+      const senderLines = [];
+      if (options.author) senderLines.push(sanitizeTextForPDF(options.author));
+      if (options.email) senderLines.push(sanitizeTextForPDF(options.email));
+      if (options.phone) senderLines.push(sanitizeTextForPDF(options.phone));
+      senderLines.push(dateStr);
+
+      let senderY = y;
+      for (const sLine of senderLines) {
+        doc.text(sLine, pageWidth - rightMargin, senderY, { align: "right" });
+        senderY += 4.5;
+      }
+      y = senderY + 6;
+
+      // Recipient placeholder block
+      doc.setFont("times", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(40, 40, 40);
+      doc.text("To Whom It May Concern,", leftMargin, y);
+      y += 5;
+      doc.setFont("times", "normal");
+      doc.text("Hiring and Admissions Committee", leftMargin, y);
+      y += 8;
+
+      // Letter title
+      doc.setFont("times", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(rgb.r, rgb.g, rgb.b);
+      doc.text(`Subject: Application / Formal Inquiry regarding ${sanitizedTitle}`, leftMargin, y);
+      y += 8;
+
+      // Letter Body paragraphs
+      const paragraphs = sanitizedContent.split("\n");
+      for (let p of paragraphs) {
+        const line = p.trim();
+        if (!line) {
+          y += 4;
+          continue;
+        }
+
         const cleanText = cleanMarkdownSymbols(line);
-        doc.setFont("Helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(60, 60, 60);
+        doc.setFont("times", "normal");
+        doc.setFontSize(10.5);
+        doc.setTextColor(50, 50, 50);
 
         const wrapped = doc.splitTextToSize(cleanText, maxLineWidth);
         for (const lineText of wrapped) {
           checkPageOverflow(5);
           doc.text(lineText, leftMargin, y);
-          y += 4.8;
+          y += 5;
+        }
+      }
+
+      // Formal Sign-off
+      y += 8;
+      checkPageOverflow(25);
+      doc.setFont("times", "bold");
+      doc.text("Sincerely,", leftMargin, y);
+      y += 12;
+      doc.text(sanitizeTextForPDF(options.author || "TAXA Client"), leftMargin, y);
+
+    } else {
+      // ----------------------------------------------------
+      // PLAIN TEXT / CODE TEMPLATE
+      // ----------------------------------------------------
+      doc.setFont("Courier", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(40, 40, 40);
+
+      const paragraphs = sanitizedContent.split("\n");
+      for (let p of paragraphs) {
+        const line = p.trimEnd(); // Keep leading spaces for code indentation!
+        if (!line) {
+          y += 4;
+          continue;
+        }
+
+        // Check text size wrapping
+        const wrapped = doc.splitTextToSize(line, maxLineWidth);
+        for (const lineText of wrapped) {
+          checkPageOverflow(5);
+          doc.text(lineText, leftMargin, y);
+          y += 4.5;
         }
       }
     }
 
-  } else if (template === "letter") {
-    // ----------------------------------------------------
-    // FORMAL COVER LETTER TEMPLATE
-    // ----------------------------------------------------
-    doc.setFont("times", "normal");
-    
-    // Sender info top-right aligned
-    doc.setFontSize(9.5);
-    doc.setTextColor(80, 80, 80);
-    const dateStr = new Date().toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric"
-    });
-    
-    const senderLines = [];
-    if (options.author) senderLines.push(options.author);
-    if (options.email) senderLines.push(options.email);
-    if (options.phone) senderLines.push(options.phone);
-    senderLines.push(dateStr);
+    // Final page footer draw
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Page ${pageNum}`, pageWidth / 2, 287, { align: "center" });
 
-    let senderY = y;
-    for (const sLine of senderLines) {
-      doc.text(sLine, pageWidth - rightMargin, senderY, { align: "right" });
-      senderY += 4.5;
-    }
-    y = senderY + 6;
+    // Compile PDF binary and download
+    const safeName = sanitizedTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "document";
+    doc.save(`${safeName}.pdf`);
 
-    // Recipient placeholder block
-    doc.setFont("times", "bold");
-    doc.setFontSize(10.5);
-    doc.setTextColor(40, 40, 40);
-    doc.text("To Whom It May Concern,", leftMargin, y);
-    y += 5;
-    doc.setFont("times", "normal");
-    doc.text("Hiring and Admissions Committee", leftMargin, y);
-    y += 8;
-
-    // Letter title
-    doc.setFont("times", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(rgb.r, rgb.g, rgb.b);
-    doc.text(`Subject: Application / Formal Inquiry regarding ${title}`, leftMargin, y);
-    y += 8;
-
-    // Letter Body paragraphs
-    const paragraphs = content.split("\n");
-    for (let p of paragraphs) {
-      const line = p.trim();
-      if (!line) {
-        y += 4;
-        continue;
+  } catch (err) {
+    console.error("PDF generation failed, falling back to clean text rendering:", err);
+    try {
+      // Standard ASCII fallback drawing loop
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+      });
+      doc.setFont("Courier", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(40, 40, 40);
+      
+      const safeTitle = sanitizedTitle.replace(/[^\x20-\x7E\n]/g, "");
+      const safeContent = sanitizedContent.replace(/[^\x20-\x7E\n]/g, "");
+      
+      doc.setFont("Courier", "bold");
+      doc.text(`DOCUMENT: ${safeTitle}`, 20, 20);
+      doc.line(20, 22, 190, 22);
+      
+      let yLine = 30;
+      doc.setFont("Courier", "normal");
+      const wrapped = doc.splitTextToSize(safeContent, 170);
+      for (const line of wrapped) {
+        if (yLine > 275) {
+          doc.addPage();
+          yLine = 20;
+        }
+        doc.text(line, 20, yLine);
+        yLine += 5;
       }
-
-      const cleanText = cleanMarkdownSymbols(line);
-      doc.setFont("times", "normal");
-      doc.setFontSize(10.5);
-      doc.setTextColor(50, 50, 50);
-
-      const wrapped = doc.splitTextToSize(cleanText, maxLineWidth);
-      for (const lineText of wrapped) {
-        checkPageOverflow(5);
-        doc.text(lineText, leftMargin, y);
-        y += 5;
-      }
-    }
-
-    // Formal Sign-off
-    y += 8;
-    checkPageOverflow(25);
-    doc.setFont("times", "bold");
-    doc.text("Sincerely,", leftMargin, y);
-    y += 12;
-    doc.text(options.author || "TAXA Client", leftMargin, y);
-
-  } else {
-    // ----------------------------------------------------
-    // PLAIN TEXT / CODE TEMPLATE
-    // ----------------------------------------------------
-    doc.setFont("Courier", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(40, 40, 40);
-
-    const paragraphs = content.split("\n");
-    for (let p of paragraphs) {
-      const line = p.trimEnd(); // Keep leading spaces for code indentation!
-      if (!line) {
-        y += 4;
-        continue;
-      }
-
-      // Check text size wrapping
-      const wrapped = doc.splitTextToSize(line, maxLineWidth);
-      for (const lineText of wrapped) {
-        checkPageOverflow(5);
-        doc.text(lineText, leftMargin, y);
-        y += 4.5;
-      }
+      
+      const safeName = sanitizedTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "document";
+      doc.save(`${safeName}.pdf`);
+    } catch (fallbackErr) {
+      alert("A critical drawing error occurred in the PDF canvas. Please try exporting as a Word DOCX or TXT file instead.");
     }
   }
-
-  // Final page footer draw
-  doc.setFont("Helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(120, 120, 120);
-  doc.text(`Page ${pageNum}`, pageWidth / 2, 287, { align: "center" });
-
-  // Compile PDF binary and download
-  const safeName = title.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "document";
-  doc.save(`${safeName}.pdf`);
 };
 
 /**
