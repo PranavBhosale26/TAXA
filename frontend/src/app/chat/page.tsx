@@ -235,7 +235,7 @@ export default function ChatPage() {
           setMessages([
             { 
               role: "assistant", 
-              content: `Welcome to your data workshop, **${user}**. I am **TAXA**.` 
+              content: `Welcome to your data workshop, **${getFriendlyName(user)}**. I am **TAXA**.` 
             }
           ]);
         } else if (res.status === 401 || res.status === 403) {
@@ -1219,7 +1219,7 @@ export default function ChatPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search sessions..."
-                className={`bg-transparent border-none outline-none text-xs w-full ${
+                className={`bg-transparent border-none outline-none text-base md:text-xs w-full ${
                   theme === 'light' ? 'text-zinc-800 placeholder:text-zinc-400' : 'text-zinc-200 placeholder:text-zinc-600'
                 }`}
               />
@@ -1661,7 +1661,7 @@ export default function ChatPage() {
                          }
                       }}
                       placeholder={isListening ? "Listening with local voice bot..." : "Ask me anything..."}
-                      className={`w-full max-h-56 min-h-[44px] resize-none bg-transparent px-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none font-light leading-relaxed ${
+                      className={`w-full max-h-56 min-h-[44px] resize-none bg-transparent px-4 py-3 text-base md:text-sm placeholder:text-zinc-600 focus:outline-none font-light leading-relaxed ${
                         theme === 'light' ? 'text-[#1f1a24]' : 'text-zinc-100'
                       }`}
                       rows={1}
@@ -1862,7 +1862,7 @@ export default function ChatPage() {
                      }
                   }}
                   placeholder={isListening ? "Listening with local voice bot..." : "Ask me anything..."}
-                  className={`w-full max-h-56 min-h-[44px] resize-none bg-transparent px-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none font-light leading-relaxed ${
+                  className={`w-full max-h-56 min-h-[44px] resize-none bg-transparent px-4 py-3 text-base md:text-sm placeholder:text-zinc-600 focus:outline-none font-light leading-relaxed ${
                     theme === 'light' ? 'text-[#1f1a24]' : 'text-zinc-100'
                   }`}
                   rows={1}
