@@ -25,6 +25,7 @@ import {
   Moon,
   Laptop
 } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/api";
 
 export default function Home() {
   const containerVariants = {
@@ -62,6 +63,19 @@ export default function Home() {
   useEffect(() => {
     const user = localStorage.getItem("omnimind_user");
     if (user) setUserName(user);
+  }, []);
+
+  // Predictive pre-warming of backend container (Render free tier cold start bypass)
+  useEffect(() => {
+    const warmUpBackend = async () => {
+      try {
+        const apiBaseUrl = getApiBaseUrl();
+        await fetch(`${apiBaseUrl}/api/health`);
+      } catch (e) {
+        // ignore errors
+      }
+    };
+    warmUpBackend();
   }, []);
 
   // Sync theme from localStorage on client mount

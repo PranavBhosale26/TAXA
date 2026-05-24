@@ -44,6 +44,10 @@ def get_db():
     finally:
         database.close()
 
+@app.get("/api/health")
+async def health_check():
+    return {"status": "healthy", "service": "TAXA Engine"}
+
 # ---- Schemas ----
 class UserCreate(BaseModel):
     username: str

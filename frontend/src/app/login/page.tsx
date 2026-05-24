@@ -56,6 +56,19 @@ export default function LoginPage() {
     }
   }, [router]);
 
+  // Predictive pre-warming of backend container (Render free tier cold start bypass)
+  useEffect(() => {
+    const warmUpBackend = async () => {
+      try {
+        const apiBaseUrl = getApiBaseUrl();
+        await fetch(`${apiBaseUrl}/api/health`);
+      } catch (e) {
+        // ignore errors
+      }
+    };
+    warmUpBackend();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -109,9 +122,9 @@ export default function LoginPage() {
           setHandshakeStepIdx(3);
           // Step 3: Complete & execute API login call
           finalizeGoogleLogin(selectedGoogleAccount.email, selectedGoogleAccount.name);
-        }, 900);
-      }, 900);
-    }, 900);
+        }, 120);
+      }, 120);
+    }, 120);
   };
 
   const finalizeGoogleLogin = async (email: string, name: string) => {
