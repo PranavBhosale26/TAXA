@@ -1528,9 +1528,9 @@ export default function ChatPage() {
         <div ref={scrollRef} className={`flex-1 overflow-y-auto p-4 sm:p-8 scrollbar-thin scrollbar-track-transparent ${
           theme === 'light' ? 'scrollbar-thumb-[#7b2cbf]/10' : 'scrollbar-thumb-white/[0.04]'
         }`} style={{ direction: 'rtl' }}>
-          <div className={`max-w-4xl mx-auto pb-4 ${!messages.some(m => m.role === 'user') ? 'h-full flex flex-col justify-center' : 'space-y-8'}`} style={{ direction: 'ltr' }}>
+          <div className={`max-w-4xl mx-auto pb-4 ${!messages.some(m => m.role === 'user') ? 'min-h-full flex flex-col justify-start md:justify-center pt-2 md:pt-0' : 'space-y-8'}`} style={{ direction: 'ltr' }}>
             {!messages.some(m => m.role === 'user') ? (
-              <div className="flex-1 flex flex-col items-center justify-center py-6 sm:py-12 px-4 select-none">
+              <div className="flex-1 flex flex-col items-center justify-start md:justify-center py-4 sm:py-12 px-4 select-none">
                 {/* Center-aligned large title */}
                 <h1 className="text-center font-extrabold tracking-tight text-3xl sm:text-5xl leading-tight mb-2">
                   <span className="bg-gradient-to-r from-[#7b2cbf] via-[#c084fc] to-[#7b2cbf] bg-clip-text text-transparent animate-pulse">
