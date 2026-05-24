@@ -1722,20 +1722,28 @@ export default function ChatPage() {
                         <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
                           <span>{m.role === 'user' ? getFriendlyName(userName) : 'TAXA'}</span>
                           {m.role === 'assistant' && (
-                            <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
                               <button 
                                 onClick={() => handleSpeakMessage(m.content, i)}
-                                className="text-zinc-500 hover:text-[#c084fc] transition-colors"
+                                className={`p-1.5 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                  theme === 'light'
+                                    ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
+                                    : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
+                                }`}
                                 title={speakingIdx === i ? "Stop Chisel Voice" : "Chisel Voice"}
                               >
-                                {speakingIdx === i ? <Square className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                                {speakingIdx === i ? <Square className="w-4.5 h-4.5 animate-pulse text-red-400" /> : <Volume2 className="w-4.5 h-4.5" />}
                               </button>
                               <button 
                                 onClick={() => handleOpenExportWorkspace(m.content)}
-                                className="text-zinc-500 hover:text-[#c084fc] transition-colors"
+                                className={`p-1.5 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                  theme === 'light'
+                                    ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
+                                    : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
+                                }`}
                                 title="Export Document (PDF/DOCX)"
                               >
-                                <FileText className="w-3.5 h-3.5" />
+                                <FileText className="w-4.5 h-4.5" />
                               </button>
                             </div>
                           )}
