@@ -35,26 +35,25 @@ export default function LoginPage() {
 
   // Google Login Custom States
   const [showGooglePicker, setShowGooglePicker] = useState(false);
-  const [googleStep, setGoogleStep] = useState<"choose" | "email" | "name">("choose");
+  const [googleStep, setGoogleStep] = useState<"choose" | "email" | "name">("email");
   const [customGoogleEmail, setCustomGoogleEmail] = useState("");
   const [customGoogleName, setCustomGoogleName] = useState("");
-  const [savedGoogleUsers, setSavedGoogleUsers] = useState<{ name: string; email: string }[]>([
-    { name: "Pranav Bhosale", email: "bhosalepranav26@gmail.com" }
-  ]);
+  const [savedGoogleUsers, setSavedGoogleUsers] = useState<{ name: string; email: string }[]>([]);
 
-  // Load cached google user on mount to offer 1-click login alongside Pranav
+  // Load cached google user on mount to offer 1-click login if they previously signed in
   useEffect(() => {
     if (typeof window !== "undefined") {
       const cachedUser = localStorage.getItem("omnimind_user");
       const cachedDisplayName = localStorage.getItem("omnimind_display_name");
       const cachedEmail = localStorage.getItem("omnimind_cached_email");
-      if (cachedUser && cachedEmail && cachedEmail.toLowerCase() !== "bhosalepranav26@gmail.com") {
+      if (cachedUser && cachedEmail) {
         setSavedGoogleUsers([
-          { name: "Pranav Bhosale", email: "bhosalepranav26@gmail.com" },
           { name: cachedDisplayName || cachedUser, email: cachedEmail }
         ]);
+        setGoogleStep("choose");
+      } else {
+        setGoogleStep("email");
       }
-      setGoogleStep("choose");
     }
   }, []);
 
@@ -286,7 +285,11 @@ export default function LoginPage() {
         <Button
           type="button"
           onClick={() => {
-            setGoogleStep("choose");
+            if (savedGoogleUsers.length > 0) {
+              setGoogleStep("choose");
+            } else {
+              setGoogleStep("email");
+            }
             setShowGooglePicker(true);
           }}
           className="w-full h-12 rounded-xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.06] hover:border-white/[0.15] text-zinc-200 hover:text-white font-medium text-sm transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
@@ -410,47 +413,28 @@ export default function LoginPage() {
                     {/* Account picker rows */}
                     <div className="space-y-0.5 divide-y divide-[#2e2e30] border-y border-[#2e2e30]">
                       
-                      {/* 1. Preconfigured Pranav Bhosale option exactly as in screenshot */}
-                      <button
-                        onClick={() => finalizeGoogleLogin("bhosalepranav26@gmail.com", "Pranav Bhosale")}
-                        className="w-full py-4 flex items-center justify-between text-left hover:bg-white/[0.04] px-3 -mx-3 rounded-2xl transition-all group active:scale-[0.99]"
-                      >
-                        <div className="flex items-center gap-4 min-w-0">
-                          {/* Avatar Circle with Initial */}
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7b2cbf] to-[#c084fc] flex items-center justify-center text-[15px] font-bold text-white uppercase shrink-0 shadow-lg shadow-[#7b2cbf]/15">
-                            P
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[15px] font-medium text-white group-hover:text-[#a8c7fa] transition-colors truncate">Pranav Bhosale</span>
-                            <span className="text-xs text-[#c4c7c5] truncate mt-0.5">bhosalepranav26@gmail.com</span>
-                          </div>
-                        </div>
-                        <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/5 px-2.5 py-0.5 rounded-full border border-emerald-500/10 shrink-0">Active</span>
-                      </button>
-
-                      {/* 2. Dynamically listed cached accounts if any (excluding duplicate Pranav) */}
-                      {savedGoogleUsers
-                        .filter(u => u.email.toLowerCase() !== "bhosalepranav26@gmail.com")
-                        .map((user, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => finalizeGoogleLogin(user.email, user.name)}
-                            className="w-full py-4 flex items-center justify-between text-left hover:bg-white/[0.04] px-3 -mx-3 rounded-2xl transition-all group active:scale-[0.99]"
-                          >
-                            <div className="flex items-center gap-4 min-w-0">
-                              <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-[15px] font-bold text-zinc-300 uppercase shrink-0 border border-white/5">
-                                {user.name.charAt(0)}
-                              </div>
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-[15px] font-medium text-white group-hover:text-[#a8c7fa] transition-colors truncate">{user.name}</span>
-                                <span className="text-xs text-[#c4c7c5] truncate mt-0.5">{user.email}</span>
-                              </div>
+                      {/* List browser-cached logged-in accounts strictly */}
+                      {savedGoogleUsers.map((user, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => finalizeGoogleLogin(user.email, user.name)}
+                          className="w-full py-4 flex items-center justify-between text-left hover:bg-white/[0.04] px-3 -mx-3 rounded-2xl transition-all group active:scale-[0.99]"
+                        >
+                          <div className="flex items-center gap-4 min-w-0">
+                            {/* Avatar Circle with Initial */}
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7b2cbf] to-[#c084fc] flex items-center justify-center text-[15px] font-bold text-white uppercase shrink-0 shadow-lg shadow-[#7b2cbf]/15">
+                              {user.name.charAt(0)}
                             </div>
-                          </button>
-                        ))
-                      }
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[15px] font-medium text-white group-hover:text-[#a8c7fa] transition-colors truncate">{user.name}</span>
+                              <span className="text-xs text-[#c4c7c5] truncate mt-0.5">{user.email}</span>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/5 px-2.5 py-0.5 rounded-full border border-emerald-500/10 shrink-0">Saved</span>
+                        </button>
+                      ))}
 
-                      {/* 3. Use Another Account button */}
+                      {/* Use Another Account button */}
                       <button
                         onClick={() => {
                           setCustomGoogleEmail("");
