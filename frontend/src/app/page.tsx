@@ -286,6 +286,7 @@ export default function Home() {
                 onClick={() => {
                   localStorage.removeItem("omnimind_token");
                   localStorage.removeItem("omnimind_user");
+                  localStorage.removeItem("omnimind_display_name");
                   setUserName("");
                 }}
                 size="sm" 
@@ -384,6 +385,7 @@ export default function Home() {
                           onClick={() => {
                             localStorage.removeItem("omnimind_token");
                             localStorage.removeItem("omnimind_user");
+                            localStorage.removeItem("omnimind_display_name");
                             setUserName("");
                             setShowSettings(false);
                           }}

@@ -1118,6 +1118,7 @@ export default function ChatPage() {
   const handleLogout = () => {
     localStorage.removeItem("omnimind_token");
     localStorage.removeItem("omnimind_user");
+    localStorage.removeItem("omnimind_display_name");
     router.push("/login");
   };
 
