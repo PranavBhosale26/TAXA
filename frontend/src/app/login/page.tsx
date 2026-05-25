@@ -35,12 +35,10 @@ export default function LoginPage() {
 
   // Google Login Custom States
   const [showGooglePicker, setShowGooglePicker] = useState(false);
-  const [googleStep, setGoogleStep] = useState<"choose" | "email" | "name">("choose");
+  const [googleStep, setGoogleStep] = useState<"choose" | "email" | "name">("email");
   const [customGoogleEmail, setCustomGoogleEmail] = useState("");
   const [customGoogleName, setCustomGoogleName] = useState("");
-  const [savedGoogleUsers, setSavedGoogleUsers] = useState<{ name: string; email: string }[]>([
-    { name: "Pranav Bhosale", email: "bhosalepranav26@gmail.com" }
-  ]);
+  const [savedGoogleUsers, setSavedGoogleUsers] = useState<{ name: string; email: string }[]>([]);
   const [backendReady, setBackendReady] = useState<boolean | null>(null); // null = checking, false = sleeping, true = ready
 
   // Aggressive backend health check with automatic retries for cold start containers
@@ -81,19 +79,15 @@ export default function LoginPage() {
       const cachedDisplayName = localStorage.getItem("omnimind_display_name");
       const cachedEmail = localStorage.getItem("omnimind_cached_email");
       
-      const defaultUsers = [
-        { name: "Pranav Bhosale", email: "bhosalepranav26@gmail.com" }
-      ];
-      
-      if (cachedUser && cachedEmail && cachedEmail !== "bhosalepranav26@gmail.com") {
+      if (cachedUser && cachedEmail) {
         setSavedGoogleUsers([
-          ...defaultUsers,
           { name: cachedDisplayName || cachedUser, email: cachedEmail }
         ]);
+        setGoogleStep("choose");
       } else {
-        setSavedGoogleUsers(defaultUsers);
+        setSavedGoogleUsers([]);
+        setGoogleStep("email");
       }
-      setGoogleStep("choose");
     }
   }, []);
 
@@ -347,7 +341,11 @@ export default function LoginPage() {
             <Button
               type="button"
               onClick={() => {
-                setGoogleStep("choose");
+                if (savedGoogleUsers.length > 0) {
+                  setGoogleStep("choose");
+                } else {
+                  setGoogleStep("email");
+                }
                 setShowGooglePicker(true);
               }}
               className="w-full h-12 rounded-xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.06] hover:border-white/[0.15] text-zinc-200 hover:text-white font-medium text-sm transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
