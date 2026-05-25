@@ -95,12 +95,10 @@ def call_model(state: AgentState):
     if user_memory:
         system_prompt = f"{system_prompt}\n\nUSER MEMORY & PERSONAL CONTEXT FOR THE ACTIVE USER:\n{user_memory}\n(Use this information to personalize your responses, remember their name/hobbies/preferences, and customize your tone accordingly. Do not hallucinate or make up details.)"
     
-    # Construct message sequence with updated system prompt at start
-    # and a strict overriding reminder at the very end to prevent regional language mirroring or privacy leaks
     messages = (
         [SystemMessage(content=system_prompt)] 
         + filtered_messages 
-        + [SystemMessage(content="CRITICAL REMINDER: Your default response language is English. If the user spoke in English, you MUST respond in English. ONLY if the user explicitly spoke in a regional/other language (like Marathi, Hindi, Hinglish, Gujarati, Marwadi, etc.), you must reply in that exact same language. Regardless of the language used, your response MUST strictly use the English/Latin alphabet only (transliterated / Romanized script). NEVER use Devanagari, Gujarati, or any other regional script/characters. Also, do not mention Pranav Bhosale unless explicitly asked about your creator/developer.")]
+        + [SystemMessage(content="CRITICAL OVERRIDING REMINDER: You MUST speak 100% in the EXACT same language that the user used. If the user spoke or asked in Marathi, your reply MUST be 100% in Marathi (transliterated using only standard English alphabets). If the user speaks in Hindi/Hinglish, your reply MUST be 100% in Hindi/Hinglish (using the English alphabet). If they spoke in English, reply in English. NEVER reply or explain in English if they asked in a regional language like Marathi or Hindi. Every single letter in your response MUST be a standard English/Latin alphabet keyboard letter (Romanized script) — NEVER use Devanagari (अ, आ), Gujarati, or any other non-English script. Also, do not mention Pranav Bhosale unless explicitly asked about your creator.")]
     )
     
     if not OPENROUTER_API_KEY or OPENROUTER_API_KEY == "paste_your_actual_key_here":

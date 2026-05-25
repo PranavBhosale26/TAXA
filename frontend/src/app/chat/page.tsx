@@ -34,7 +34,8 @@ import {
   Download,
   Palette,
   Copy,
-  Check
+  Check,
+  Edit2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -82,6 +83,8 @@ export default function ChatPage() {
   
   const [userName, setUserName] = useState("Guest");
   const [displayName, setDisplayName] = useState("Guest");
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
   
   const getFriendlyName = (name: string): string => {
     if (!name) return "Guest";
@@ -829,6 +832,99 @@ export default function ChatPage() {
     } else {
       startSpeaking();
     }
+  };
+
+  // Resubmits a clean chat history sequence (from edit or refresh) directly to the API
+  const resubmitChatHistory = async (msgSequence: Message[]) => {
+    setLoading(true);
+    try {
+      const apiBaseUrl = getApiBaseUrl();
+      const token = localStorage.getItem("omnimind_token");
+      
+      const lastUserMsg = msgSequence[msgSequence.length - 1];
+      const cleanedHistory = msgSequence.slice(0, -1).map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+
+      const res = await fetch(`${apiBaseUrl}/api/chat`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          messages: [...cleanedHistory, lastUserMsg], 
+          session_id: currentSessionId, 
+          username: userName,
+          attached_file_content: null,
+          attached_file_name: null
+        })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Connection lost");
+      }
+      
+      const taxaResponse = data.response;
+      setMessages([...msgSequence, { role: "assistant", content: taxaResponse }]);
+      
+      // Update session titles in sidebar
+      const sessRes = await fetch(`${apiBaseUrl}/api/sessions/${userName}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (sessRes.ok) {
+        setSessions(await sessRes.json());
+      }
+
+      // Voice Response Integration
+      if (isTwoWayModeRef.current) {
+        setVoiceAssistantState("speaking");
+        setLastAssistantVoiceTranscript(taxaResponse);
+        speakText(taxaResponse, () => {
+           if (isTwoWayModeRef.current && !isMicPausedRef.current) {
+              setVoiceAssistantState("listening");
+              setTimeout(() => {
+                if (isTwoWayModeRef.current && !isMicPausedRef.current && !isListeningRef.current) {
+                  toggleListening(true);
+                }
+              }, 150);
+           } else {
+              setVoiceAssistantState("idle");
+           }
+        }, true);
+      }
+      
+    } catch (error) {
+      setMessages([...msgSequence, { role: "assistant", content: "[TAXA Connect Issue]: My cognitive line is fluctuating. Restart your local server engine." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handles saving an edited user prompt and resubmitting from that point
+  const handleSaveAndResubmit = async (idx: number) => {
+    if (!editText.trim()) return;
+    
+    const historyUpToEdit = messages.slice(0, idx);
+    const editedMsg: Message = {
+      ...messages[idx],
+      content: editText
+    };
+    
+    setMessages([...historyUpToEdit, editedMsg]);
+    setEditingIdx(null);
+    await resubmitChatHistory([...historyUpToEdit, editedMsg]);
+  };
+
+  // Truncates and regenerates/refreshes an assistant response
+  const handleRefreshMessage = async (idx: number) => {
+    const historyUpToUserMsg = messages.slice(0, idx);
+    setMessages(historyUpToUserMsg);
+    await resubmitChatHistory(historyUpToUserMsg);
   };
 
   // Speaks/Stops individual messages in standard chat bubbles
@@ -1764,6 +1860,39 @@ export default function ChatPage() {
                           {/* Header: User name and voice speak icon */}
                           <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
                             <span>{m.role === 'user' ? getFriendlyName(displayName) : 'TAXA'}</span>
+                            {m.role === 'user' && (
+                              <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                                <button 
+                                  onClick={() => {
+                                    setEditingIdx(i);
+                                    setEditText(m.content);
+                                  }}
+                                  className={`p-1.5 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                    theme === 'light'
+                                      ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
+                                      : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
+                                  }`}
+                                  title="Edit Message"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(m.content);
+                                    setCopiedIdx(i);
+                                    setTimeout(() => setCopiedIdx(null), 2000);
+                                  }}
+                                  className={`p-1.5 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                    theme === 'light'
+                                      ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
+                                      : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
+                                  }`}
+                                  title="Copy Message"
+                                >
+                                  {copiedIdx === i ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            )}
                             {m.role === 'assistant' && (
                               <div className="flex items-center gap-2 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
                                 <button 
@@ -1777,6 +1906,19 @@ export default function ChatPage() {
                                 >
                                   {speakingIdx === i ? <Square className="w-5 h-5 animate-pulse text-red-400" /> : <Volume2 className="w-5 h-5" />}
                                 </button>
+                                
+                                <button 
+                                  onClick={() => handleRefreshMessage(i)}
+                                  className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                    theme === 'light'
+                                      ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
+                                      : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
+                                  }`}
+                                  title="Refresh / Regenerate Response"
+                                >
+                                  <RefreshCw className="w-5 h-5" />
+                                </button>
+
                                 {isExportRequested && (
                                   <button 
                                     onClick={() => handleOpenExportWorkspace(m.content)}
@@ -1807,7 +1949,7 @@ export default function ChatPage() {
                             {m.role === 'assistant' ? (
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                             ) : (
-                              <div className="space-y-3">
+                              <div className="space-y-3 w-full">
                                 {/* Image preview thumbnail inside bubble */}
                                 {m.image_url && (
                                   <img 
@@ -1816,7 +1958,33 @@ export default function ChatPage() {
                                     className="max-h-60 rounded-lg border border-white/10 shadow-lg object-contain"
                                   />
                                 )}
-                                <span className="whitespace-pre-wrap">{m.content}</span>
+                                
+                                {editingIdx === i ? (
+                                  <div className="w-full min-w-[240px] sm:min-w-[400px] mt-2 space-y-3 text-left">
+                                    <textarea
+                                      value={editText}
+                                      onChange={(e) => setEditText(e.target.value)}
+                                      className="w-full p-3 rounded-xl text-[14.5px] leading-relaxed border focus-visible:ring-1 focus-visible:ring-[#7b2cbf]/50 focus:border-[#7b2cbf]/50 bg-black/45 text-white border-white/[0.08]"
+                                      rows={3}
+                                    />
+                                    <div className="flex gap-2 justify-end">
+                                      <button
+                                        onClick={() => setEditingIdx(null)}
+                                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-zinc-400 border border-white/5 transition-all"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={() => handleSaveAndResubmit(i)}
+                                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] hover:from-[#7b2cbf] hover:to-[#c084fc] text-white border border-[#c084fc]/30 shadow-lg shadow-[#7b2cbf]/10 transition-all flex items-center gap-1"
+                                      >
+                                        Save & Submit
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="whitespace-pre-wrap">{m.content}</span>
+                                )}
                               </div>
                             )}
                           </div>
