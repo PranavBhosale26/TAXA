@@ -46,11 +46,12 @@ export default function LoginPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const cachedUser = localStorage.getItem("omnimind_user");
+      const cachedDisplayName = localStorage.getItem("omnimind_display_name");
       const cachedEmail = localStorage.getItem("omnimind_cached_email");
       if (cachedUser && cachedEmail && cachedEmail.toLowerCase() !== "bhosalepranav26@gmail.com") {
         setSavedGoogleUsers([
           { name: "Pranav Bhosale", email: "bhosalepranav26@gmail.com" },
-          { name: cachedUser, email: cachedEmail }
+          { name: cachedDisplayName || cachedUser, email: cachedEmail }
         ]);
       }
       setGoogleStep("choose");

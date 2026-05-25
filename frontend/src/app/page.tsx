@@ -44,6 +44,7 @@ export default function Home() {
   };
 
   const [userName, setUserName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [activeFact, setActiveFact] = useState(0);
   
   // Interactive Spotlight Grid State
@@ -83,7 +84,11 @@ export default function Home() {
 
   useEffect(() => {
     const user = localStorage.getItem("omnimind_user");
-    if (user) setUserName(user);
+    const savedDisplayName = localStorage.getItem("omnimind_display_name");
+    if (user) {
+      setUserName(user);
+      setDisplayName(savedDisplayName || user);
+    }
   }, []);
 
   // Predictive pre-warming of backend container (Render free tier cold start bypass)
@@ -442,7 +447,7 @@ export default function Home() {
               <Link href={userName ? "/chat" : "/login"}>
                 <Button size="lg" className="group relative overflow-hidden rounded-xl bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] px-9 text-white transition-all hover:scale-105 shadow-[0_0_30px_rgba(157,78,221,0.3)] hover:shadow-[0_0_40px_rgba(157,78,221,0.5)] h-14 border border-[#c084fc]/30">
                   <span className="relative z-10 flex items-center gap-2.5 font-semibold text-[15px] uppercase tracking-wider">
-                    {userName ? `Enter TAXA Workspace (${getFriendlyName(userName)})` : "Get Started Now"} 
+                    {userName ? `Enter TAXA Workspace (${getFriendlyName(displayName)})` : "Get Started Now"} 
                     <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
                   </span>
                 </Button>

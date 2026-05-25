@@ -81,6 +81,7 @@ export default function ChatPage() {
   const [attachedImage, setAttachedImage] = useState(""); // base64 representation
   
   const [userName, setUserName] = useState("Guest");
+  const [displayName, setDisplayName] = useState("Guest");
   
   const getFriendlyName = (name: string): string => {
     if (!name) return "Guest";
@@ -237,13 +238,17 @@ export default function ChatPage() {
   useEffect(() => {
     const token = localStorage.getItem("omnimind_token");
     const user = localStorage.getItem("omnimind_user");
+    const savedDisplayName = localStorage.getItem("omnimind_display_name");
+    
     if (!token || !user) {
       localStorage.removeItem("omnimind_token");
       localStorage.removeItem("omnimind_user");
+      localStorage.removeItem("omnimind_display_name");
       router.push("/login");
       return;
     }
     setUserName(user);
+    setDisplayName(savedDisplayName || user);
 
     const fetchSessions = async () => {
       try {
@@ -263,12 +268,13 @@ export default function ChatPage() {
           setMessages([
             { 
               role: "assistant", 
-              content: `Welcome to your data workshop, **${getFriendlyName(user)}**. I am **TAXA**.` 
+              content: `Welcome to your data workshop, **${getFriendlyName(savedDisplayName || user)}**. I am **TAXA**.` 
             }
           ]);
         } else if (res.status === 401 || res.status === 403) {
           localStorage.removeItem("omnimind_token");
           localStorage.removeItem("omnimind_user");
+          localStorage.removeItem("omnimind_display_name");
           router.push("/login");
         }
       } catch (err) {
@@ -358,7 +364,7 @@ export default function ChatPage() {
     setMessages([
       { 
         role: "assistant", 
-        content: `A fresh slate, **${getFriendlyName(userName)}**. How can I help you today? Ask me any question, write code, or analyze files.` 
+        content: `A fresh slate, **${getFriendlyName(displayName)}**. How can I help you today? Ask me any question, write code, or analyze files.` 
       }
     ]);
     // Clear current attachments
@@ -637,7 +643,7 @@ export default function ChatPage() {
     }
     
     // Exact requested greeting: "Hi [Name], I'm TAXA. Tell me, how can I help you?"
-    const greetingText = `Hi ${getFriendlyName(userName)}, I'm TAXA. Tell me, how can I help you?`;
+    const greetingText = `Hi ${getFriendlyName(displayName)}, I'm TAXA. Tell me, how can I help you?`;
     setLastAssistantVoiceTranscript(greetingText);
     
     speakText(greetingText, () => {
@@ -868,7 +874,7 @@ export default function ChatPage() {
     setExportText(content);
     setExportTitle(meta.name || "TAXA Document");
     setExportTemplate(detectedTemplate);
-    setExportAuthor(userName === "Guest" ? (meta.name || "") : getFriendlyName(userName));
+    setExportAuthor(userName === "Guest" ? (meta.name || "") : getFriendlyName(displayName));
     setExportEmail(meta.email || "");
     setExportPhone(meta.phone || "");
     setExportGithub(meta.github || "");
@@ -1378,10 +1384,10 @@ export default function ChatPage() {
            
            <div className="flex items-center gap-3 min-w-0">
              <Avatar className="w-9 h-9 rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-sm font-bold border border-white/5 text-zinc-200">
-                {getFriendlyName(userName).charAt(0).toUpperCase()}
+                {getFriendlyName(displayName).charAt(0).toUpperCase()}
              </Avatar>
              <div className="flex flex-col min-w-0">
-               <span className="text-xs sm:text-sm font-semibold text-zinc-300 truncate">{getFriendlyName(userName)}</span>
+               <span className="text-xs sm:text-sm font-semibold text-zinc-300 truncate">{getFriendlyName(displayName)}</span>
                <span className="text-[9px] text-[#c084fc] font-bold tracking-widest uppercase">Master Architect</span>
              </div>
            </div>
@@ -1562,7 +1568,7 @@ export default function ChatPage() {
                 {/* Center-aligned large title */}
                 <h1 className="text-center font-extrabold tracking-tight text-3xl sm:text-5xl leading-tight mb-2">
                   <span className="bg-gradient-to-r from-[#7b2cbf] via-[#c084fc] to-[#7b2cbf] bg-clip-text text-transparent animate-pulse">
-                    Hi, {getFriendlyName(userName)}.
+                    Hi, {getFriendlyName(displayName)}.
                   </span>
                   <br />
                   <span className={theme === 'light' ? 'text-zinc-700' : 'text-zinc-300'}>
@@ -1747,7 +1753,7 @@ export default function ChatPage() {
                             </div>
                           ) : (
                             <div className="bg-zinc-800 w-full h-full flex items-center justify-center">
-                              <span className="text-xs sm:text-sm font-semibold text-zinc-300">{getFriendlyName(userName).charAt(0).toUpperCase()}</span>
+                              <span className="text-xs sm:text-sm font-semibold text-zinc-300">{getFriendlyName(displayName).charAt(0).toUpperCase()}</span>
                             </div>
                           )}
                         </Avatar>
@@ -1756,7 +1762,7 @@ export default function ChatPage() {
                           
                           {/* Header: User name and voice speak icon */}
                           <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
-                            <span>{m.role === 'user' ? getFriendlyName(userName) : 'TAXA'}</span>
+                            <span>{m.role === 'user' ? getFriendlyName(displayName) : 'TAXA'}</span>
                             {m.role === 'assistant' && (
                               <div className="flex items-center gap-2 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
                                 <button 
