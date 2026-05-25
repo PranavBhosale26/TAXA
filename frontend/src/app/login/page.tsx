@@ -135,7 +135,7 @@ export default function LoginPage() {
         setError(data.detail || "Google login authentication failed.");
       } else {
         localStorage.setItem("omnimind_token", data.access_token);
-        localStorage.setItem("omnimind_user", name || data.username);
+        localStorage.setItem("omnimind_user", data.username);
         localStorage.setItem("omnimind_cached_email", email);
         router.push("/chat");
       }
