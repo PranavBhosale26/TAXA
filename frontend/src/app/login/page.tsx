@@ -35,22 +35,25 @@ export default function LoginPage() {
 
   // Google Login Custom States
   const [showGooglePicker, setShowGooglePicker] = useState(false);
-  const [googleStep, setGoogleStep] = useState<"choose" | "email" | "name">("email");
+  const [googleStep, setGoogleStep] = useState<"choose" | "email" | "name">("choose");
   const [customGoogleEmail, setCustomGoogleEmail] = useState("");
   const [customGoogleName, setCustomGoogleName] = useState("");
-  const [savedGoogleUsers, setSavedGoogleUsers] = useState<{ name: string; email: string }[]>([]);
+  const [savedGoogleUsers, setSavedGoogleUsers] = useState<{ name: string; email: string }[]>([
+    { name: "Pranav Bhosale", email: "bhosalepranav26@gmail.com" }
+  ]);
 
-  // Load cached google user on mount to offer 1-click login
+  // Load cached google user on mount to offer 1-click login alongside Pranav
   useEffect(() => {
     if (typeof window !== "undefined") {
       const cachedUser = localStorage.getItem("omnimind_user");
       const cachedEmail = localStorage.getItem("omnimind_cached_email");
-      if (cachedUser && cachedEmail) {
-        setSavedGoogleUsers([{ name: cachedUser, email: cachedEmail }]);
-        setGoogleStep("choose");
-      } else {
-        setGoogleStep("email");
+      if (cachedUser && cachedEmail && cachedEmail.toLowerCase() !== "bhosalepranav26@gmail.com") {
+        setSavedGoogleUsers([
+          { name: "Pranav Bhosale", email: "bhosalepranav26@gmail.com" },
+          { name: cachedUser, email: cachedEmail }
+        ]);
       }
+      setGoogleStep("choose");
     }
   }, []);
 
@@ -135,7 +138,7 @@ export default function LoginPage() {
         setError(data.detail || "Google login authentication failed.");
       } else {
         localStorage.setItem("omnimind_token", data.access_token);
-        localStorage.setItem("omnimind_user", data.username);
+        localStorage.setItem("omnimind_user", name || data.username);
         localStorage.setItem("omnimind_cached_email", email);
         router.push("/chat");
       }
@@ -282,14 +285,7 @@ export default function LoginPage() {
         <Button
           type="button"
           onClick={() => {
-            const cachedUser = localStorage.getItem("omnimind_user");
-            const cachedEmail = localStorage.getItem("omnimind_cached_email");
-            if (cachedUser && cachedEmail) {
-              setSavedGoogleUsers([{ name: cachedUser, email: cachedEmail }]);
-              setGoogleStep("choose");
-            } else {
-              setGoogleStep("email");
-            }
+            setGoogleStep("choose");
             setShowGooglePicker(true);
           }}
           className="w-full h-12 rounded-xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.06] hover:border-white/[0.15] text-zinc-200 hover:text-white font-medium text-sm transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
@@ -328,127 +324,188 @@ export default function LoginPage() {
         </div>
       </motion.div>
 
-      {/* Google Account Credentials Input Portal (Gemini Style) */}
+      {/* Google Account Credentials Input Portal (Google Chooser Style) */}
       <AnimatePresence>
         {showGooglePicker && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 transition-all duration-300">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 transition-all duration-300">
+            {/* Elegant Background Google style footer markers */}
+            <div className="absolute bottom-6 left-6 text-xs text-[#9aa0a6] hover:text-white cursor-pointer font-light transition-colors hidden md:block">
+              English (United Kingdom) ▾
+            </div>
+            <div className="absolute bottom-6 right-6 flex gap-6 text-xs text-[#9aa0a6] font-light hidden md:block">
+              <span className="hover:text-white cursor-pointer transition-colors">Help</span>
+              <span className="hover:text-white cursor-pointer transition-colors">Privacy</span>
+              <span className="hover:text-white cursor-pointer transition-colors">Terms</span>
+            </div>
+
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              initial={{ opacity: 0, scale: 0.96, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative w-full max-w-sm bg-[#0a0510] border border-white/[0.08] rounded-3xl shadow-2xl p-6 sm:p-7 overflow-hidden text-center"
+              exit={{ opacity: 0, scale: 0.96, y: 15 }}
+              className="relative w-full max-w-3xl bg-[#131314] border border-[#2e2e30] rounded-[28px] p-8 md:p-10 shadow-2xl overflow-hidden flex flex-col md:flex-row gap-8 md:gap-12 md:min-h-[400px]"
             >
-              {/* Elegant Glowing Border */}
-              <div className="absolute inset-0 -z-10 rounded-3xl p-[1px] bg-gradient-to-br from-white/[0.05] via-transparent to-[#7b2cbf]/25" />
-              
-              {/* official Google logo */}
-              <div className="flex flex-col items-center mb-6">
-                <svg className="w-10 h-10 mb-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#EA4335"
-                    d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.2-5.136 4.2A5.6 5.6 0 0 1 8.35 13a5.6 5.6 0 0 1 5.64-5.6c1.55 0 2.97.58 4.05 1.54l3.12-3.12A9.91 9.91 0 0 0 13.99 2a10 10 0 0 0-10 10 10 10 0 0 0 10 10c5.56 0 10.01-4.04 10.01-9.98a8.87 8.87 0 0 0-.17-1.73H12.24Z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M3.99 12a10 10 0 0 0 .17 1.73l3.66-2.84A5.6 5.6 0 0 1 8.35 12c0-1.12.33-2.17.91-3.05l-3.66-2.84A9.9 9.9 0 0 0 3.99 12Z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M13.99 22c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H3.99v2.84C5.8 19.53 9.5 22 13.99 22Z"
-                  />
-                  <path
-                    fill="#4285F4"
-                    d="M21.27 19.34A10 10 0 0 0 24 12c0-.58-.07-1.16-.17-1.73H12.24V14.4h6.887a5.92 5.92 0 0 1-2.21 3.31l3.57 2.77c1.07-1.02 2.1-2.22 3.03-3.14Z"
-                  />
-                </svg>
-                
-                {googleStep === "choose" && (
-                  <>
-                    <h3 className="text-xl font-bold text-white tracking-wide">Choose an account</h3>
-                    <p className="text-xs text-zinc-400 mt-1">to continue to TAXA Workspace</p>
-                  </>
-                )}
-                {googleStep === "email" && (
-                  <>
-                    <h3 className="text-xl font-bold text-white tracking-wide">Sign in</h3>
-                    <p className="text-xs text-zinc-400 mt-1">to continue to TAXA Workspace</p>
-                  </>
-                )}
-                {googleStep === "name" && (
-                  <>
-                    <h3 className="text-xl font-bold text-white tracking-wide">Welcome</h3>
-                    <p className="text-xs text-[#c084fc] font-mono mt-1 font-semibold truncate max-w-full px-2">{customGoogleEmail}</p>
-                  </>
-                )}
+              {/* Left Column: Sign in header & Title */}
+              <div className="flex-1 flex flex-col justify-between text-left">
+                <div>
+                  {/* Google Logo Header */}
+                  <div className="flex items-center gap-2.5 mb-8">
+                    <svg className="w-5.5 h-5.5" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium text-[#c4c7c5]">Sign in with Google</span>
+                  </div>
+
+                  {googleStep === "choose" && (
+                    <>
+                      <h2 className="text-3xl font-normal text-white tracking-tight leading-tight">Choose an account</h2>
+                      <p className="text-sm text-[#c4c7c5] mt-3">to continue to <span className="text-[#a8c7fa] font-medium hover:underline cursor-pointer">taxa.ai</span></p>
+                    </>
+                  )}
+
+                  {googleStep === "email" && (
+                    <>
+                      <h2 className="text-3xl font-normal text-white tracking-tight leading-tight">Sign in</h2>
+                      <p className="text-sm text-[#c4c7c5] mt-3">to continue to <span className="text-[#a8c7fa] font-medium hover:underline cursor-pointer">taxa.ai</span></p>
+                    </>
+                  )}
+
+                  {googleStep === "name" && (
+                    <>
+                      <h2 className="text-3xl font-normal text-white tracking-tight leading-tight">Welcome</h2>
+                      <p className="text-sm text-[#c084fc] font-mono mt-3 font-semibold truncate max-w-full">{customGoogleEmail}</p>
+                    </>
+                  )}
+                </div>
+
+                {/* Left Bottom Close Button overlay */}
+                <button
+                  onClick={() => setShowGooglePicker(false)}
+                  className="text-xs text-[#9aa0a6] hover:text-white transition-colors underline underline-offset-4 text-left mt-6 md:mt-0 font-medium uppercase tracking-wider"
+                >
+                  Close Gateway
+                </button>
               </div>
 
-              {/* Dynamic steps content */}
-              <div className="space-y-4 text-left">
+              {/* Right Column: Account Selection / Interactive Input Fields */}
+              <div className="flex-[1.3] flex flex-col justify-between text-left">
+                
                 {googleStep === "choose" && (
-                  <div className="space-y-3.5">
-                    {/* List cached accounts */}
-                    {savedGoogleUsers.map((user, idx) => (
+                  <div className="flex flex-col justify-between h-full">
+                    {/* Account picker rows */}
+                    <div className="space-y-0.5 divide-y divide-[#2e2e30] border-y border-[#2e2e30]">
+                      
+                      {/* 1. Preconfigured Pranav Bhosale option exactly as in screenshot */}
                       <button
-                        key={idx}
-                        onClick={() => finalizeGoogleLogin(user.email, user.name)}
-                        className="w-full p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.07] hover:bg-[#7b2cbf]/10 hover:border-[#7b2cbf]/30 transition-all flex items-center justify-between text-left group active:scale-[0.98]"
+                        onClick={() => finalizeGoogleLogin("bhosalepranav26@gmail.com", "Pranav Bhosale")}
+                        className="w-full py-4 flex items-center justify-between text-left hover:bg-white/[0.04] px-3 -mx-3 rounded-2xl transition-all group active:scale-[0.99]"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#7b2cbf] to-[#c084fc] flex items-center justify-center text-sm font-bold text-white uppercase shrink-0">
-                            {user.name.charAt(0)}
+                        <div className="flex items-center gap-4 min-w-0">
+                          {/* Avatar Circle with Initial */}
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7b2cbf] to-[#c084fc] flex items-center justify-center text-[15px] font-bold text-white uppercase shrink-0 shadow-lg shadow-[#7b2cbf]/15">
+                            P
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-xs font-semibold text-zinc-200 group-hover:text-white truncate">{user.name}</span>
-                            <span className="text-[10px] text-zinc-500 group-hover:text-zinc-400 truncate">{user.email}</span>
+                            <span className="text-[15px] font-medium text-white group-hover:text-[#a8c7fa] transition-colors truncate">Pranav Bhosale</span>
+                            <span className="text-xs text-[#c4c7c5] truncate mt-0.5">bhosalepranav26@gmail.com</span>
                           </div>
                         </div>
-                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/5 px-2.5 py-1 rounded-full border border-emerald-500/10 shrink-0">Saved</span>
+                        <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/5 px-2.5 py-0.5 rounded-full border border-emerald-500/10 shrink-0">Active</span>
                       </button>
-                    ))}
 
-                    {/* Use Another Account Button */}
-                    <button
-                      onClick={() => {
-                        setCustomGoogleEmail("");
-                        setCustomGoogleName("");
-                        setGoogleStep("email");
-                      }}
-                      className="w-full p-3.5 rounded-2xl bg-transparent border border-dashed border-white/[0.08] hover:border-white/[0.2] hover:bg-white/[0.02] text-zinc-400 hover:text-white transition-all text-xs font-bold uppercase tracking-wider text-center"
-                    >
-                      Use another account
-                    </button>
+                      {/* 2. Dynamically listed cached accounts if any (excluding duplicate Pranav) */}
+                      {savedGoogleUsers
+                        .filter(u => u.email.toLowerCase() !== "bhosalepranav26@gmail.com")
+                        .map((user, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => finalizeGoogleLogin(user.email, user.name)}
+                            className="w-full py-4 flex items-center justify-between text-left hover:bg-white/[0.04] px-3 -mx-3 rounded-2xl transition-all group active:scale-[0.99]"
+                          >
+                            <div className="flex items-center gap-4 min-w-0">
+                              <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-[15px] font-bold text-zinc-300 uppercase shrink-0 border border-white/5">
+                                {user.name.charAt(0)}
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[15px] font-medium text-white group-hover:text-[#a8c7fa] transition-colors truncate">{user.name}</span>
+                                <span className="text-xs text-[#c4c7c5] truncate mt-0.5">{user.email}</span>
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      }
+
+                      {/* 3. Use Another Account button */}
+                      <button
+                        onClick={() => {
+                          setCustomGoogleEmail("");
+                          setCustomGoogleName("");
+                          setGoogleStep("email");
+                        }}
+                        className="w-full py-4 flex items-center gap-4 text-left hover:bg-white/[0.04] px-3 -mx-3 rounded-2xl transition-all group active:scale-[0.99]"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#1f1f20] border border-[#2e2e30] flex items-center justify-center shrink-0">
+                          <svg className="w-5 h-5 text-[#c4c7c5]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                          </svg>
+                        </div>
+                        <div className="text-[15px] font-medium text-white group-hover:text-[#a8c7fa] transition-colors">Use another account</div>
+                      </button>
+
+                    </div>
+
+                    {/* Bottom Google terms disclosure */}
+                    <div className="text-xs text-[#c4c7c5] leading-relaxed pt-8 font-light mt-6 md:mt-0">
+                      Before using this app, you can review taxa.ai's <span className="text-[#a8c7fa] hover:underline cursor-pointer">Privacy Policy</span> and <span className="text-[#a8c7fa] hover:underline cursor-pointer">Terms of Service</span>.
+                    </div>
                   </div>
                 )}
 
                 {googleStep === "email" && (
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Email or Phone</label>
-                      <Input
-                        name="google-email-input"
-                        autoComplete="email"
-                        type="email"
-                        placeholder="Enter your email"
-                        value={customGoogleEmail}
-                        onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                        className="bg-black/45 border-white/[0.07] text-white placeholder:text-zinc-700 focus-visible:ring-[#7b2cbf]/50 focus:border-[#7b2cbf]/50 h-11 rounded-xl transition-all text-xs font-light"
-                        required
-                      />
+                  <div className="flex flex-col justify-between h-full space-y-6">
+                    <div className="space-y-5">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest animate-pulse">Email or Phone</label>
+                        <Input
+                          name="google-email-input"
+                          autoComplete="email"
+                          type="email"
+                          placeholder="Enter your email address"
+                          value={customGoogleEmail}
+                          onChange={(e) => setCustomGoogleEmail(e.target.value)}
+                          className="bg-black/45 border-white/[0.07] text-white placeholder:text-zinc-700 focus-visible:ring-[#7b2cbf]/50 focus:border-[#7b2cbf]/50 h-12 rounded-xl transition-all text-sm font-light px-4"
+                          required
+                        />
+                      </div>
                     </div>
 
-                    <div className="flex gap-3 pt-2">
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4 w-full">
                       <Button
                         type="button"
-                        onClick={() => setShowGooglePicker(false)}
-                        className="flex-1 h-11 rounded-xl bg-white/[0.01] hover:bg-white/[0.04] border border-white/[0.06] text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-wider transition-all"
+                        onClick={() => setGoogleStep("choose")}
+                        className="flex-1 h-12 rounded-xl bg-white/[0.01] hover:bg-white/[0.04] border border-white/[0.06] text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-wider transition-all"
                       >
-                        Cancel
+                        Back
                       </Button>
                       <Button
                         type="button"
                         disabled={!customGoogleEmail.includes("@")}
                         onClick={() => setGoogleStep("name")}
-                        className="flex-1 h-11 rounded-xl bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] text-white font-bold text-xs uppercase tracking-wider transition-all border border-[#c084fc]/30 shadow-lg shadow-[#7b2cbf]/10 flex items-center justify-center gap-1.5"
+                        className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] text-white font-bold text-xs uppercase tracking-wider transition-all border border-[#c084fc]/30 shadow-lg shadow-[#7b2cbf]/10 flex items-center justify-center gap-1.5"
                       >
                         Next
                       </Button>
@@ -457,26 +514,28 @@ export default function LoginPage() {
                 )}
 
                 {googleStep === "name" && (
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Your Full Name</label>
-                      <Input
-                        name="google-name-input"
-                        autoComplete="name"
-                        type="text"
-                        placeholder="e.g. Pranav Bhosale"
-                        value={customGoogleName}
-                        onChange={(e) => setCustomGoogleName(e.target.value)}
-                        className="bg-black/45 border-white/[0.07] text-white placeholder:text-zinc-700 focus-visible:ring-[#7b2cbf]/50 focus:border-[#7b2cbf]/50 h-11 rounded-xl transition-all text-xs font-light"
-                        required
-                      />
+                  <div className="flex flex-col justify-between h-full space-y-6">
+                    <div className="space-y-5">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest animate-pulse">Your Full Name</label>
+                        <Input
+                          name="google-name-input"
+                          autoComplete="name"
+                          type="text"
+                          placeholder="e.g. John Doe"
+                          value={customGoogleName}
+                          onChange={(e) => setCustomGoogleName(e.target.value)}
+                          className="bg-black/45 border-white/[0.07] text-white placeholder:text-zinc-700 focus-visible:ring-[#7b2cbf]/50 focus:border-[#7b2cbf]/50 h-12 rounded-xl transition-all text-sm font-light px-4"
+                          required
+                        />
+                      </div>
                     </div>
 
-                    <div className="flex gap-3 pt-2">
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4 w-full">
                       <Button
                         type="button"
                         onClick={() => setGoogleStep("email")}
-                        className="flex-1 h-11 rounded-xl bg-white/[0.01] hover:bg-white/[0.04] border border-white/[0.06] text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-wider transition-all"
+                        className="flex-1 h-12 rounded-xl bg-white/[0.01] hover:bg-white/[0.04] border border-white/[0.06] text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-wider transition-all"
                       >
                         Back
                       </Button>
@@ -484,7 +543,7 @@ export default function LoginPage() {
                         type="button"
                         disabled={!customGoogleName || loading}
                         onClick={() => finalizeGoogleLogin(customGoogleEmail, customGoogleName)}
-                        className="flex-1 h-11 rounded-xl bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] text-white font-bold text-xs uppercase tracking-wider transition-all border border-[#c084fc]/30 shadow-lg shadow-[#7b2cbf]/10 flex items-center justify-center gap-1.5"
+                        className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] text-white font-bold text-xs uppercase tracking-wider transition-all border border-[#c084fc]/30 shadow-lg shadow-[#7b2cbf]/10 flex items-center justify-center gap-1.5"
                       >
                         {loading ? (
                           <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
@@ -495,6 +554,7 @@ export default function LoginPage() {
                     </div>
                   </div>
                 )}
+
               </div>
             </motion.div>
           </div>
