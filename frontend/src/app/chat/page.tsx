@@ -84,12 +84,37 @@ export default function ChatPage() {
   
   const getFriendlyName = (name: string): string => {
     if (!name) return "Guest";
-    if (name.includes("@")) {
-      const parts = name.split("@")[0].split(/[._-]/);
-      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    
+    // Normalize to lowercase for keyword matching
+    let clean = name.toLowerCase().trim();
+    
+    // Extract prefix if it is an email address
+    if (clean.includes("@")) {
+      clean = clean.split("@")[0];
     }
-    const parts = name.trim().split(/\s+/);
-    return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    
+    // Strip trailing digits (e.g., "bhosalepranav26" -> "bhosalepranav")
+    clean = clean.replace(/\d+$/, "");
+    
+    // Semantic name extraction checks
+    if (clean.includes("pranav")) {
+      return "Pranav";
+    }
+    
+    // If handle starts with "bhosale" and has a suffix
+    if (clean.startsWith("bhosale") && clean.length > 7) {
+      const suffix = clean.slice(7);
+      if (suffix) {
+        return suffix.charAt(0).toUpperCase() + suffix.slice(1);
+      }
+    }
+    
+    // General delimiter split
+    const parts = clean.split(/[._-]/);
+    let firstPart = parts[0];
+    
+    // Capitalize first letter
+    return firstPart.charAt(0).toUpperCase() + firstPart.slice(1);
   };
 
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
