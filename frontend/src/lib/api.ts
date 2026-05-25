@@ -9,11 +9,26 @@ export function getApiBaseUrl(): string {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   
+  const defaultProdBackend = "https://taxa-backend-10i9.onrender.com";
+
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
-    // Keep port 8000 if we are on a custom local host/IP address
-    return `${protocol}//${hostname}:8000`;
+    
+    // Check if running locally (localhost, loopback, or private/local network)
+    const isLocal = 
+      hostname === "localhost" || 
+      hostname === "127.0.0.1" || 
+      hostname === "[::1]" || 
+      hostname.startsWith("192.168.") || 
+      hostname.startsWith("10.") || 
+      hostname.endsWith(".local");
+      
+    if (isLocal) {
+      return `${protocol}//${hostname}:8000`;
+    } else {
+      return defaultProdBackend;
+    }
   }
   
   return "http://localhost:8000";
