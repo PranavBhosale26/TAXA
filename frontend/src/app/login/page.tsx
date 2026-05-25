@@ -35,10 +35,12 @@ export default function LoginPage() {
 
   // Google Login Custom States
   const [showGooglePicker, setShowGooglePicker] = useState(false);
-  const [googleStep, setGoogleStep] = useState<"choose" | "email" | "name">("email");
+  const [googleStep, setGoogleStep] = useState<"choose" | "email" | "name">("choose");
   const [customGoogleEmail, setCustomGoogleEmail] = useState("");
   const [customGoogleName, setCustomGoogleName] = useState("");
-  const [savedGoogleUsers, setSavedGoogleUsers] = useState<{ name: string; email: string }[]>([]);
+  const [savedGoogleUsers, setSavedGoogleUsers] = useState<{ name: string; email: string }[]>([
+    { name: "Pranav Bhosale", email: "bhosalepranav26@gmail.com" }
+  ]);
   const [backendReady, setBackendReady] = useState<boolean | null>(null); // null = checking, false = sleeping, true = ready
 
   // Aggressive backend health check with automatic retries for cold start containers
@@ -78,14 +80,20 @@ export default function LoginPage() {
       const cachedUser = localStorage.getItem("omnimind_user");
       const cachedDisplayName = localStorage.getItem("omnimind_display_name");
       const cachedEmail = localStorage.getItem("omnimind_cached_email");
-      if (cachedUser && cachedEmail) {
+      
+      const defaultUsers = [
+        { name: "Pranav Bhosale", email: "bhosalepranav26@gmail.com" }
+      ];
+      
+      if (cachedUser && cachedEmail && cachedEmail !== "bhosalepranav26@gmail.com") {
         setSavedGoogleUsers([
+          ...defaultUsers,
           { name: cachedDisplayName || cachedUser, email: cachedEmail }
         ]);
-        setGoogleStep("choose");
       } else {
-        setGoogleStep("email");
+        setSavedGoogleUsers(defaultUsers);
       }
+      setGoogleStep("choose");
     }
   }, []);
 
@@ -339,11 +347,7 @@ export default function LoginPage() {
             <Button
               type="button"
               onClick={() => {
-                if (savedGoogleUsers.length > 0) {
-                  setGoogleStep("choose");
-                } else {
-                  setGoogleStep("email");
-                }
+                setGoogleStep("choose");
                 setShowGooglePicker(true);
               }}
               className="w-full h-12 rounded-xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.06] hover:border-white/[0.15] text-zinc-200 hover:text-white font-medium text-sm transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
@@ -486,7 +490,6 @@ export default function LoginPage() {
                               <span className="text-xs text-[#c4c7c5] truncate mt-0.5">{user.email}</span>
                             </div>
                           </div>
-                          <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/5 px-2.5 py-0.5 rounded-full border border-emerald-500/10 shrink-0">Saved</span>
                         </button>
                       ))}
 
