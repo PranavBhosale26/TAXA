@@ -1700,161 +1700,174 @@ export default function ChatPage() {
             ) : (
               <>
                 <AnimatePresence initial={false}>
-                  {messages.map((m, i) => (
-                    <motion.div 
-                      key={i}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex gap-4 sm:gap-6 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
-                    >
-                      <Avatar className="w-9 h-9 sm:w-10 sm:h-10 border border-white/5 shrink-0 shadow-lg rounded-xl overflow-hidden">
-                        {m.role === 'assistant' ? (
-                          <div className="bg-gradient-to-br from-[#12071d] to-[#040106] w-full h-full flex items-center justify-center border border-[#7b2cbf]/20">
-                            <Layers className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-[#c084fc]" />
-                          </div>
-                        ) : (
-                          <div className="bg-zinc-800 w-full h-full flex items-center justify-center">
-                            <span className="text-xs sm:text-sm font-semibold text-zinc-300">{getFriendlyName(userName).charAt(0).toUpperCase()}</span>
-                          </div>
-                        )}
-                      </Avatar>
-                      
-                      <div className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%] group`}>
-                        
-                        {/* Header: User name and voice speak icon */}
-                        <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
-                          <span>{m.role === 'user' ? getFriendlyName(userName) : 'TAXA'}</span>
-                          {m.role === 'assistant' && (
-                            <div className="flex items-center gap-2 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
-                              <button 
-                                onClick={() => handleSpeakMessage(m.content, i)}
-                                className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
-                                  theme === 'light'
-                                    ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
-                                    : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
-                                }`}
-                                title={speakingIdx === i ? "Stop Chisel Voice" : "Chisel Voice"}
-                              >
-                                {speakingIdx === i ? <Square className="w-5 h-5 animate-pulse text-red-400" /> : <Volume2 className="w-5 h-5" />}
-                              </button>
-                              <button 
-                                onClick={() => handleOpenExportWorkspace(m.content)}
-                                className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
-                                  theme === 'light'
-                                    ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
-                                    : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
-                                }`}
-                                title="Export Document (PDF/DOCX)"
-                              >
-                                <FileText className="w-5 h-5" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Message Body Content */}
-                        <div className={`p-4 sm:p-5 rounded-2xl text-[14.5px] leading-relaxed shadow-sm ${
-                          m.role === 'user' 
-                            ? theme === 'light'
-                              ? 'bg-[#7b2cbf]/5 text-[#1f1a24] rounded-tr-sm border border-[#7b2cbf]/10'
-                              : 'bg-white/[0.025] text-zinc-100 rounded-tr-sm border border-white/[0.04]' 
-                            : theme === 'light'
-                              ? 'bg-transparent text-[#2c2438] prose prose-p:leading-relaxed prose-pre:bg-[#f3eff7] prose-pre:border prose-pre:border-[#7b2cbf]/10 max-w-none'
-                              : 'bg-transparent text-zinc-300 prose prose-invert prose-p:leading-relaxed prose-pre:bg-[#060408] prose-pre:border prose-pre:border-white/[0.05] max-w-none'
-                        }`}>
+                  {messages.map((m, i) => {
+                    const isExportRequested = m.role === 'assistant' && (
+                      m.content.toLowerCase().includes("pdf") || 
+                      m.content.toLowerCase().includes("docx") || 
+                      m.content.toLowerCase().includes("export") || 
+                      m.content.toLowerCase().includes("download") ||
+                      m.content.toLowerCase().includes("document")
+                    );
+                    return (
+                      <motion.div 
+                        key={i}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`flex gap-4 sm:gap-6 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
+                      >
+                        <Avatar className="w-9 h-9 sm:w-10 sm:h-10 border border-white/5 shrink-0 shadow-lg rounded-xl overflow-hidden">
                           {m.role === 'assistant' ? (
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                            <div className="bg-gradient-to-br from-[#12071d] to-[#040106] w-full h-full flex items-center justify-center border border-[#7b2cbf]/20">
+                              <Layers className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-[#c084fc]" />
+                            </div>
                           ) : (
-                            <div className="space-y-3">
-                              {/* Image preview thumbnail inside bubble */}
-                              {m.image_url && (
-                                <img 
-                                  src={m.image_url} 
-                                  alt="Uploaded Image" 
-                                  className="max-h-60 rounded-lg border border-white/10 shadow-lg object-contain"
-                                />
+                            <div className="bg-zinc-800 w-full h-full flex items-center justify-center">
+                              <span className="text-xs sm:text-sm font-semibold text-zinc-300">{getFriendlyName(userName).charAt(0).toUpperCase()}</span>
+                            </div>
+                          )}
+                        </Avatar>
+                        
+                        <div className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%] group`}>
+                          
+                          {/* Header: User name and voice speak icon */}
+                          <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
+                            <span>{m.role === 'user' ? getFriendlyName(userName) : 'TAXA'}</span>
+                            {m.role === 'assistant' && (
+                              <div className="flex items-center gap-2 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                                <button 
+                                  onClick={() => handleSpeakMessage(m.content, i)}
+                                  className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                    theme === 'light'
+                                      ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
+                                      : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
+                                  }`}
+                                  title={speakingIdx === i ? "Stop Chisel Voice" : "Chisel Voice"}
+                                >
+                                  {speakingIdx === i ? <Square className="w-5 h-5 animate-pulse text-red-400" /> : <Volume2 className="w-5 h-5" />}
+                                </button>
+                                {isExportRequested && (
+                                  <button 
+                                    onClick={() => handleOpenExportWorkspace(m.content)}
+                                    className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                      theme === 'light'
+                                        ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
+                                        : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
+                                    }`}
+                                    title="Export Document (PDF/DOCX)"
+                                  >
+                                    <FileText className="w-5 h-5" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Message Body Content */}
+                          <div className={`p-4 sm:p-5 rounded-2xl text-[14.5px] leading-relaxed shadow-sm ${
+                            m.role === 'user' 
+                              ? theme === 'light'
+                                ? 'bg-[#7b2cbf]/5 text-[#1f1a24] rounded-tr-sm border border-[#7b2cbf]/10'
+                                : 'bg-white/[0.025] text-zinc-100 rounded-tr-sm border border-white/[0.04]' 
+                              : theme === 'light'
+                                ? 'bg-transparent text-[#2c2438] prose prose-p:leading-relaxed prose-pre:bg-[#f3eff7] prose-pre:border prose-pre:border-[#7b2cbf]/10 max-w-none'
+                                : 'bg-transparent text-zinc-300 prose prose-invert prose-p:leading-relaxed prose-pre:bg-[#060408] prose-pre:border prose-pre:border-white/[0.05] max-w-none'
+                          }`}>
+                            {m.role === 'assistant' ? (
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                            ) : (
+                              <div className="space-y-3">
+                                {/* Image preview thumbnail inside bubble */}
+                                {m.image_url && (
+                                  <img 
+                                    src={m.image_url} 
+                                    alt="Uploaded Image" 
+                                    className="max-h-60 rounded-lg border border-white/10 shadow-lg object-contain"
+                                  />
+                                )}
+                                <span className="whitespace-pre-wrap">{m.content}</span>
+                              </div>
+                            )}
+                          </div>
+  
+                          {/* Premium Bottom Action Row */}
+                          {m.role === 'assistant' && (
+                            <div className="flex flex-wrap items-center gap-2.5 mt-3 px-1 w-full justify-start">
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(m.content);
+                                  setCopiedIdx(i);
+                                  setTimeout(() => setCopiedIdx(null), 2000);
+                                }}
+                                className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                                  theme === 'light'
+                                    ? copiedIdx === i
+                                      ? 'bg-green-500/10 border-green-500/20 text-green-600'
+                                      : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
+                                    : copiedIdx === i
+                                      ? 'bg-green-500/20 border-green-500/30 text-green-300'
+                                      : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
+                                }`}
+                                title="Copy response to clipboard"
+                              >
+                                {copiedIdx === i ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-green-500" />
+                                    <span>Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </button>
+  
+                              <button
+                                onClick={() => handleSpeakMessage(m.content, i)}
+                                className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                                  theme === 'light'
+                                    ? speakingIdx === i
+                                      ? 'bg-red-500/10 border-red-500/20 text-red-600 hover:bg-red-500/20'
+                                      : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
+                                    : speakingIdx === i
+                                      ? 'bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30'
+                                      : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
+                                }`}
+                                title={speakingIdx === i ? "Stop Speaking" : "Listen to Response"}
+                              >
+                                {speakingIdx === i ? (
+                                  <>
+                                    <Square className="w-3.5 h-3.5 animate-pulse text-red-500" />
+                                    <span>Stop Voice</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Volume2 className="w-3.5 h-3.5" />
+                                    <span>Speak</span>
+                                  </>
+                                )}
+                              </button>
+  
+                              {isExportRequested && (
+                                <button
+                                  onClick={() => handleOpenExportWorkspace(m.content)}
+                                  className={`px-4 py-2 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-2 shadow-lg hover:shadow-[#7b2cbf]/10 ${
+                                    theme === 'light'
+                                      ? 'bg-[#7b2cbf] border-[#7b2cbf]/20 text-white hover:bg-[#8f3ad6] hover:scale-[1.02]'
+                                      : 'bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] border-[#7b2cbf]/40 text-white hover:brightness-110 hover:scale-[1.02]'
+                                  }`}
+                                  title="Export Document as PDF, DOCX, or TXT"
+                                >
+                                  <FileText className="w-4 h-4 text-white" />
+                                  <span>Export PDF / DOCX</span>
+                                </button>
                               )}
-                              <span className="whitespace-pre-wrap">{m.content}</span>
                             </div>
                           )}
                         </div>
-
-                        {/* Premium Bottom Action Row */}
-                        {m.role === 'assistant' && (
-                          <div className="flex flex-wrap items-center gap-2.5 mt-3 px-1 w-full justify-start">
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(m.content);
-                                setCopiedIdx(i);
-                                setTimeout(() => setCopiedIdx(null), 2000);
-                              }}
-                              className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
-                                theme === 'light'
-                                  ? copiedIdx === i
-                                    ? 'bg-green-500/10 border-green-500/20 text-green-600'
-                                    : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
-                                  : copiedIdx === i
-                                    ? 'bg-green-500/20 border-green-500/30 text-green-300'
-                                    : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
-                              }`}
-                              title="Copy response to clipboard"
-                            >
-                              {copiedIdx === i ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5 text-green-500" />
-                                  <span>Copied!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3.5 h-3.5" />
-                                  <span>Copy</span>
-                                </>
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => handleSpeakMessage(m.content, i)}
-                              className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
-                                theme === 'light'
-                                  ? speakingIdx === i
-                                    ? 'bg-red-500/10 border-red-500/20 text-red-600 hover:bg-red-500/20'
-                                    : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
-                                  : speakingIdx === i
-                                    ? 'bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30'
-                                    : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
-                              }`}
-                              title={speakingIdx === i ? "Stop Speaking" : "Listen to Response"}
-                            >
-                              {speakingIdx === i ? (
-                                <>
-                                  <Square className="w-3.5 h-3.5 animate-pulse text-red-500" />
-                                  <span>Stop Voice</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Volume2 className="w-3.5 h-3.5" />
-                                  <span>Speak</span>
-                                </>
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => handleOpenExportWorkspace(m.content)}
-                              className={`px-4 py-2 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-2 shadow-lg hover:shadow-[#7b2cbf]/10 ${
-                                theme === 'light'
-                                  ? 'bg-[#7b2cbf] border-[#7b2cbf]/20 text-white hover:bg-[#8f3ad6] hover:scale-[1.02]'
-                                  : 'bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] border-[#7b2cbf]/40 text-white hover:brightness-110 hover:scale-[1.02]'
-                              }`}
-                              title="Export Document as PDF, DOCX, or TXT"
-                            >
-                              <FileText className="w-4 h-4 text-white" />
-                              <span>Export PDF / DOCX</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
                 
                 {/* Loading Indicator */}
