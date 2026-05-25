@@ -232,7 +232,42 @@ INSTRUCTIONS:
 4. Each bullet point should be a single, short sentence written in the English alphabet (e.g. "* User likes to code in TypeScript.", "* User's name is Pranav.").
 5. Output ONLY the updated list of bullet points. No conversational intro, no fluff, no explanations. Just the list.
 """
-        response = llm.invoke([SystemMessage(content=prompt)])
+        try:
+            response = llm.invoke([SystemMessage(content=prompt)])
+        except Exception as e:
+            error_msg = str(e)
+            is_credit_error = (
+                "402" in error_msg 
+                or "credit" in error_msg.lower() 
+                or "afford" in error_msg.lower() 
+                or "payment" in error_msg.lower()
+                or "billing" in error_msg.lower()
+            )
+            if is_credit_error:
+                try:
+                    fallback_llm = ChatOpenAI(
+                        model_name="google/gemma-2-9b-it:free",
+                        openai_api_key=api_key,
+                        openai_api_base="https://openrouter.ai/api/v1",
+                        temperature=0.2,
+                        max_tokens=300,
+                    )
+                    response = fallback_llm.invoke([SystemMessage(content=prompt)])
+                except Exception as fallback_e:
+                    try:
+                        final_llm = ChatOpenAI(
+                            model_name="openrouter/free",
+                            openai_api_key=api_key,
+                            openai_api_base="https://openrouter.ai/api/v1",
+                            temperature=0.2,
+                            max_tokens=300,
+                        )
+                        response = final_llm.invoke([SystemMessage(content=prompt)])
+                    except Exception as final_e:
+                        raise final_e
+            else:
+                raise e
+
         updated_notes = response.content.strip()
         if updated_notes:
             if not memory_rec:

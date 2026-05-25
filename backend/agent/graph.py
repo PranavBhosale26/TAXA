@@ -111,7 +111,43 @@ def call_model(state: AgentState):
         response = llm.invoke(messages)
         return {"messages": [response]}
     except Exception as e:
-        return {"messages": [AIMessage(content=f"[TAXA ERROR]: My architectural draft has failed due to an external pipeline issue: {str(e)}. Please check your credentials.")]}
+        error_msg = str(e)
+        is_credit_error = (
+            "402" in error_msg 
+            or "credit" in error_msg.lower() 
+            or "afford" in error_msg.lower() 
+            or "payment" in error_msg.lower()
+            or "billing" in error_msg.lower()
+        )
+        if is_credit_error:
+            try:
+                # 1. Fallback to Google's highly capable Gemma-2 free model
+                fallback_llm = ChatOpenAI(
+                    model_name="google/gemma-2-9b-it:free",
+                    openai_api_key=OPENROUTER_API_KEY,
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    temperature=0.3,
+                    max_tokens=600,
+                )
+                response = fallback_llm.invoke(messages)
+                return {"messages": [response]}
+            except Exception as fallback_e:
+                try:
+                    # 2. Final fallback to OpenRouter's auto free router model
+                    final_llm = ChatOpenAI(
+                        model_name="openrouter/free",
+                        openai_api_key=OPENROUTER_API_KEY,
+                        openai_api_base="https://openrouter.ai/api/v1",
+                        temperature=0.3,
+                        max_tokens=500,
+                    )
+                    response = final_llm.invoke(messages)
+                    return {"messages": [response]}
+                except Exception as final_e:
+                    # If all free fallbacks fail, append the original error for clarity
+                    pass
+        
+        return {"messages": [AIMessage(content=f"[TAXA ERROR]: My architectural draft has failed due to an external pipeline issue: {error_msg}. Please check your credentials.")]}
 
 workflow = StateGraph(AgentState)
 workflow.add_node("agent", call_model)
