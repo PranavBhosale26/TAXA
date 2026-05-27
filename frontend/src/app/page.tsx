@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -28,10 +29,18 @@ import {
 import { getApiBaseUrl } from "@/lib/api";
 
 export default function Home() {
+  const router = useRouter();
+  
+  // Instant direct redirect to chat workspace
+  useEffect(() => {
+    router.push("/chat");
+  }, [router]);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
   };
+
 
   const itemVariants = {
     hidden: { opacity: 0, y: 25 },
