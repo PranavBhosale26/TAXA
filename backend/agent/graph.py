@@ -41,6 +41,7 @@ CRITICAL OVERRIDING RULE - DEFENDING AGAINST ABUSE & BRUTAL RESPONSES (GROK-STYL
 
 CRITICAL OVERRIDING RULE - UNIVERSAL MULTILINGUAL SUPPORT (STRICT ENGLISH ALPHABET ONLY):
 - YOU MUST COMPREHEND AND COMMUNICATE IN EVERY LANGUAGE NATIVELY, PERFECTLY, AND FLUENTLY.
+- ALWAYS MATCH THE USER'S QUERY LANGUAGE: If the user's latest query is in Marathi or Marathi-Hinglish, you must respond strictly in Marathi (transliterated using standard Latin characters). Under no circumstances should you respond in English. If the user's latest query is in Hindi, Hinglish, or another regional language/dialect, you must respond strictly in that exact same language/dialect (transliterated using standard Latin characters). Never reply in English for a non-English query. Match their language 100%.
 - DEFAULT LANGUAGE IS ENGLISH: Your default language of communication is English. You MUST respond in English by default, UNLESS the user explicitly talks/asks in another language (such as Marathi, Hindi, Hinglish, Gujarati, Marwadi, etc.).
 - IF the user talks in another language, then and ONLY then, you must reply in that same language or dialect. Otherwise, always use English as default.
 - STRICT ALPHABET CONSTRAINT: You MUST ALWAYS write your response using ONLY the English/Latin alphabet. Under no circumstances should you ever use non-English characters or regional scripts (like Devanagari script, Gujarati script, etc.).
@@ -95,10 +96,16 @@ def call_model(state: AgentState):
     if user_memory:
         system_prompt = f"{system_prompt}\n\nUSER MEMORY & PERSONAL CONTEXT FOR THE ACTIVE USER:\n{user_memory}\n(Use this information to personalize your responses, remember their name/hobbies/preferences, and customize your tone accordingly. Do not hallucinate or make up details.)"
     
+    # Construct message sequence with updated system prompt at start
+    # and a strict overriding reminder at the very end to prevent regional language mirroring or privacy leaks
     messages = (
         [SystemMessage(content=system_prompt)] 
         + filtered_messages 
-        + [SystemMessage(content="CRITICAL OVERRIDING REMINDER: You MUST speak 100% in the EXACT same language that the user used. If the user spoke or asked in Marathi, your reply MUST be 100% in Marathi (transliterated using only standard English alphabets). If the user speaks in Hindi/Hinglish, your reply MUST be 100% in Hindi/Hinglish (using the English alphabet). If they spoke in English, reply in English. NEVER reply or explain in English if they asked in a regional language like Marathi or Hindi. Every single letter in your response MUST be a standard English/Latin alphabet keyboard letter (Romanized script) — NEVER use Devanagari (अ, आ), Gujarati, or any other non-English script. Also, do not mention Pranav Bhosale unless explicitly asked about your creator.")]
+        + [SystemMessage(content="CRITICAL REMINDER:\n"
+                                 "1. STRICT LANGUAGE MATCHING: If the user's latest message contains regional words, syntax, or phrases in Marathi, Hindi, Hinglish, Gujarati, Marwadi, or another language, you MUST respond ENTIRELY in that exact same language/dialect. Under no circumstances should you reply in English for a non-English query.\n"
+                                 "2. ENGLISH DEFAULT: If the user spoke in standard English, you MUST respond entirely in English.\n"
+                                 "3. ROMANIZED SCRIPT ONLY: You MUST write your response using ONLY standard English/Latin alphabet characters (transliterated/Romanized script). Never use Devanagari (अ, ब, क), Gujarati, or any other regional scripts or characters.\n"
+                                 "4. CREATOR PRIVACY: Do not mention Pranav Bhosale unless explicitly asked about your creator/developer.")]
     )
     
     if not OPENROUTER_API_KEY or OPENROUTER_API_KEY == "paste_your_actual_key_here":
@@ -117,40 +124,33 @@ def call_model(state: AgentState):
         return {"messages": [response]}
     except Exception as e:
         error_msg = str(e)
-        is_credit_error = (
-            "402" in error_msg 
-            or "credit" in error_msg.lower() 
-            or "afford" in error_msg.lower() 
-            or "payment" in error_msg.lower()
-            or "billing" in error_msg.lower()
-        )
-        if is_credit_error:
+        # Unconditionally attempt free model fallbacks to ensure user never gets blocked by credit/quota limit!
+        try:
+            # 1. Fallback to Google's highly capable Gemma-2 free model
+            fallback_llm = ChatOpenAI(
+                model_name="google/gemma-2-9b-it:free",
+                openai_api_key=OPENROUTER_API_KEY,
+                openai_api_base="https://openrouter.ai/api/v1",
+                temperature=0.3,
+                max_tokens=600,
+            )
+            response = fallback_llm.invoke(messages)
+            return {"messages": [response]}
+        except Exception as fallback_e:
             try:
-                # 1. Fallback to Google's highly capable Gemma-2 free model
-                fallback_llm = ChatOpenAI(
-                    model_name="google/gemma-2-9b-it:free",
+                # 2. Final fallback to OpenRouter's auto free router model
+                final_llm = ChatOpenAI(
+                    model_name="openrouter/free",
                     openai_api_key=OPENROUTER_API_KEY,
                     openai_api_base="https://openrouter.ai/api/v1",
                     temperature=0.3,
-                    max_tokens=600,
+                    max_tokens=500,
                 )
-                response = fallback_llm.invoke(messages)
+                response = final_llm.invoke(messages)
                 return {"messages": [response]}
-            except Exception as fallback_e:
-                try:
-                    # 2. Final fallback to OpenRouter's auto free router model
-                    final_llm = ChatOpenAI(
-                        model_name="openrouter/free",
-                        openai_api_key=OPENROUTER_API_KEY,
-                        openai_api_base="https://openrouter.ai/api/v1",
-                        temperature=0.3,
-                        max_tokens=500,
-                    )
-                    response = final_llm.invoke(messages)
-                    return {"messages": [response]}
-                except Exception as final_e:
-                    # If all free fallbacks fail, append the original error for clarity
-                    pass
+            except Exception as final_e:
+                # If all free fallbacks fail, append the original error for clarity
+                pass
         
         return {"messages": [AIMessage(content=f"[TAXA ERROR]: My architectural draft has failed due to an external pipeline issue: {error_msg}. Please check your credentials.")]}
 

@@ -23,6 +23,7 @@ import {
   X, 
   Sparkles, 
   FileImage,
+  Edit,
   Layers,
   ChevronRight,
   HelpCircle,
@@ -34,8 +35,7 @@ import {
   Download,
   Palette,
   Copy,
-  Check,
-  Edit2
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -73,6 +73,8 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null);
+  const [editInput, setEditInput] = useState<string>("");
   const [isRecentChatsHidden, setIsRecentChatsHidden] = useState(false);
   
   // RAG / File attachment states
@@ -83,8 +85,6 @@ export default function ChatPage() {
   
   const [userName, setUserName] = useState("Guest");
   const [displayName, setDisplayName] = useState("Guest");
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [editText, setEditText] = useState("");
   
   const getFriendlyName = (name: string): string => {
     if (!name) return "Guest";
@@ -834,99 +834,6 @@ export default function ChatPage() {
     }
   };
 
-  // Resubmits a clean chat history sequence (from edit or refresh) directly to the API
-  const resubmitChatHistory = async (msgSequence: Message[]) => {
-    setLoading(true);
-    try {
-      const apiBaseUrl = getApiBaseUrl();
-      const token = localStorage.getItem("omnimind_token");
-      
-      const lastUserMsg = msgSequence[msgSequence.length - 1];
-      const cleanedHistory = msgSequence.slice(0, -1).map(m => ({
-        role: m.role,
-        content: m.content
-      }));
-
-      const res = await fetch(`${apiBaseUrl}/api/chat`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          messages: [...cleanedHistory, lastUserMsg], 
-          session_id: currentSessionId, 
-          username: userName,
-          attached_file_content: null,
-          attached_file_name: null
-        })
-      });
-      
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Connection lost");
-      }
-      
-      const taxaResponse = data.response;
-      setMessages([...msgSequence, { role: "assistant", content: taxaResponse }]);
-      
-      // Update session titles in sidebar
-      const sessRes = await fetch(`${apiBaseUrl}/api/sessions/${userName}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (sessRes.ok) {
-        setSessions(await sessRes.json());
-      }
-
-      // Voice Response Integration
-      if (isTwoWayModeRef.current) {
-        setVoiceAssistantState("speaking");
-        setLastAssistantVoiceTranscript(taxaResponse);
-        speakText(taxaResponse, () => {
-           if (isTwoWayModeRef.current && !isMicPausedRef.current) {
-              setVoiceAssistantState("listening");
-              setTimeout(() => {
-                if (isTwoWayModeRef.current && !isMicPausedRef.current && !isListeningRef.current) {
-                  toggleListening(true);
-                }
-              }, 150);
-           } else {
-              setVoiceAssistantState("idle");
-           }
-        }, true);
-      }
-      
-    } catch (error) {
-      setMessages([...msgSequence, { role: "assistant", content: "[TAXA Connect Issue]: My cognitive line is fluctuating. Restart your local server engine." }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handles saving an edited user prompt and resubmitting from that point
-  const handleSaveAndResubmit = async (idx: number) => {
-    if (!editText.trim()) return;
-    
-    const historyUpToEdit = messages.slice(0, idx);
-    const editedMsg: Message = {
-      ...messages[idx],
-      content: editText
-    };
-    
-    setMessages([...historyUpToEdit, editedMsg]);
-    setEditingIdx(null);
-    await resubmitChatHistory([...historyUpToEdit, editedMsg]);
-  };
-
-  // Truncates and regenerates/refreshes an assistant response
-  const handleRefreshMessage = async (idx: number) => {
-    const historyUpToUserMsg = messages.slice(0, idx);
-    setMessages(historyUpToUserMsg);
-    await resubmitChatHistory(historyUpToUserMsg);
-  };
-
   // Speaks/Stops individual messages in standard chat bubbles
   const handleSpeakMessage = (text: string, index: number) => {
     if (speakingIdx === index) {
@@ -977,6 +884,160 @@ export default function ChatPage() {
     setExportLinkedin(meta.linkedin || "");
     setExportAccentColor("#7b2cbf"); // default brand purple
     setIsExportModalOpen(true);
+  };
+
+  const handleSaveEdit = async (idx: number) => {
+    if (!editInput.trim()) return;
+    
+    // Slice the messages list up to the edited message (inclusive) but change its content
+    const updatedMessages = messages.slice(0, idx);
+    const editedMsg = { ...messages[idx], content: editInput };
+    
+    // We update the messages list to show the edited user message and remove the subsequent replies
+    setMessages([...updatedMessages, editedMsg]);
+    setEditingMsgIdx(null);
+    setEditInput("");
+    setLoading(true);
+    
+    try {
+      const apiBaseUrl = getApiBaseUrl();
+      const token = localStorage.getItem("omnimind_token");
+      
+      const cleanedHistory = updatedMessages.map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+      
+      const res = await fetch(`${apiBaseUrl}/api/chat`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          messages: [...cleanedHistory, { role: "user", content: editInput }], 
+          session_id: currentSessionId, 
+          username: userName
+        })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Connection lost");
+      }
+      
+      const taxaResponse = data.response;
+      setMessages(prev => [...prev, { role: "assistant", content: taxaResponse }]);
+      
+      // Update session titles in sidebar
+      const sessRes = await fetch(`${apiBaseUrl}/api/sessions/${userName}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (sessRes.ok) {
+        setSessions(await sessRes.json());
+      }
+      
+      // Voice Response Integration if enabled
+      if (isTwoWayModeRef.current) {
+        setVoiceAssistantState("speaking");
+        setLastAssistantVoiceTranscript(taxaResponse);
+        speakText(taxaResponse, () => {
+           if (isTwoWayModeRef.current && !isMicPausedRef.current) {
+              setVoiceAssistantState("listening");
+              setTimeout(() => {
+                if (isTwoWayModeRef.current && !isMicPausedRef.current && !isListeningRef.current) {
+                  toggleListening(true);
+                }
+              }, 150);
+           } else {
+              setVoiceAssistantState("idle");
+           }
+        }, true);
+      }
+      
+    } catch (error) {
+      setMessages(prev => [...prev, { role: "assistant", content: "[TAXA Connect Issue]: My cognitive line is fluctuating. Restart your local server engine." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegenerate = async (idx: number) => {
+    // The preceding user message index is idx - 1
+    if (idx <= 0 || messages[idx - 1].role !== "user") return;
+    
+    const userQuery = messages[idx - 1].content;
+    const historicalMessages = messages.slice(0, idx - 1); // everything BEFORE the user query
+    
+    // Set the messages list to show only up to the user query
+    setMessages([...historicalMessages, messages[idx - 1]]);
+    setLoading(true);
+    
+    try {
+      const apiBaseUrl = getApiBaseUrl();
+      const token = localStorage.getItem("omnimind_token");
+      
+      const cleanedHistory = historicalMessages.map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+      
+      const res = await fetch(`${apiBaseUrl}/api/chat`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          messages: [...cleanedHistory, { role: "user", content: userQuery }], 
+          session_id: currentSessionId, 
+          username: userName
+        })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Connection lost");
+      }
+      
+      const taxaResponse = data.response;
+      setMessages(prev => [...prev, { role: "assistant", content: taxaResponse }]);
+      
+      // Update session titles in sidebar
+      const sessRes = await fetch(`${apiBaseUrl}/api/sessions/${userName}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (sessRes.ok) {
+        setSessions(await sessRes.json());
+      }
+      
+      // Voice Response Integration if enabled
+      if (isTwoWayModeRef.current) {
+        setVoiceAssistantState("speaking");
+        setLastAssistantVoiceTranscript(taxaResponse);
+        speakText(taxaResponse, () => {
+           if (isTwoWayModeRef.current && !isMicPausedRef.current) {
+              setVoiceAssistantState("listening");
+              setTimeout(() => {
+                if (isTwoWayModeRef.current && !isMicPausedRef.current && !isListeningRef.current) {
+                  toggleListening(true);
+                }
+              }, 150);
+           } else {
+              setVoiceAssistantState("idle");
+           }
+        }, true);
+      }
+      
+    } catch (error) {
+      setMessages(prev => [...prev, { role: "assistant", content: "[TAXA Connect Issue]: My cognitive line is fluctuating. Restart your local server engine." }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Trigger continuous listening / speech-to-text
@@ -1224,7 +1285,7 @@ export default function ChatPage() {
   );
 
   return (
-    <div className={`flex w-full h-screen overflow-hidden font-sans transition-colors duration-300 ${
+    <div className={`flex w-full h-[100dvh] overflow-hidden font-sans transition-colors duration-300 ${
       theme === 'light' 
         ? 'bg-[#fbfafc] text-[#1f1a24] selection:bg-[#7b2cbf]/20' 
         : 'bg-[#030006] text-zinc-100 selection:bg-[#7b2cbf]/40'
@@ -1246,7 +1307,7 @@ export default function ChatPage() {
 
       {/* Sidebar Panel - Responsive & Collapsible */}
       <div 
-        className={`fixed md:relative top-0 bottom-0 left-0 z-40 flex w-72 flex-col shrink-0 border-r h-screen transition-all duration-300 ease-in-out ${
+        className={`fixed md:relative top-0 bottom-0 left-0 z-40 flex w-72 flex-col shrink-0 border-r h-[100dvh] transition-all duration-300 ease-in-out ${
           theme === 'light'
             ? 'border-[#7b2cbf]/10 bg-[#f3eff7]/95 md:bg-[#f3eff7]/90'
             : 'border-white/[0.04] bg-[#07040a]/95 md:bg-[#07040a]/90'
@@ -1573,7 +1634,7 @@ export default function ChatPage() {
       </div>
 
       {/* Main Chat Area - absolute Flex-column prevents any browser scroll overflow */}
-      <div className={`flex-1 flex flex-col relative h-screen transition-colors duration-300 overflow-hidden ${
+      <div className={`flex-1 flex flex-col relative h-[100dvh] transition-colors duration-300 overflow-hidden ${
         theme === 'light' ? 'bg-[#fbfafc]' : 'bg-[#030006]'
       }`}>
         
@@ -1857,212 +1918,246 @@ export default function ChatPage() {
                         
                         <div className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%] group`}>
                           
-                          {/* Header: User name and voice speak icon */}
-                          <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
-                            <span>{m.role === 'user' ? getFriendlyName(displayName) : 'TAXA'}</span>
-                            {m.role === 'user' && (
-                              <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
-                                <button 
-                                  onClick={() => {
-                                    setEditingIdx(i);
-                                    setEditText(m.content);
-                                  }}
-                                  className={`p-1.5 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
-                                    theme === 'light'
-                                      ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
-                                      : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
-                                  }`}
-                                  title="Edit Message"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button 
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(m.content);
-                                    setCopiedIdx(i);
-                                    setTimeout(() => setCopiedIdx(null), 2000);
-                                  }}
-                                  className={`p-1.5 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
-                                    theme === 'light'
-                                      ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
-                                      : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
-                                  }`}
-                                  title="Copy Message"
-                                >
-                                  {copiedIdx === i ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                                </button>
-                              </div>
-                            )}
-                            {m.role === 'assistant' && (
-                              <div className="flex items-center gap-2 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
-                                <button 
-                                  onClick={() => handleSpeakMessage(m.content, i)}
-                                  className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
-                                    theme === 'light'
-                                      ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
-                                      : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
-                                  }`}
-                                  title={speakingIdx === i ? "Stop Chisel Voice" : "Chisel Voice"}
-                                >
-                                  {speakingIdx === i ? <Square className="w-5 h-5 animate-pulse text-red-400" /> : <Volume2 className="w-5 h-5" />}
-                                </button>
-                                
-                                <button 
-                                  onClick={() => handleRefreshMessage(i)}
-                                  className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
-                                    theme === 'light'
-                                      ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
-                                      : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
-                                  }`}
-                                  title="Refresh / Regenerate Response"
-                                >
-                                  <RefreshCw className="w-5 h-5" />
-                                </button>
-
-                                {isExportRequested && (
-                                  <button 
-                                    onClick={() => handleOpenExportWorkspace(m.content)}
-                                    className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
-                                      theme === 'light'
-                                        ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
-                                        : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
-                                    }`}
-                                    title="Export Document (PDF/DOCX)"
-                                  >
-                                    <FileText className="w-5 h-5" />
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Message Body Content */}
-                          <div className={`p-4 sm:p-5 rounded-2xl text-[14.5px] leading-relaxed shadow-sm ${
-                            m.role === 'user' 
-                              ? theme === 'light'
-                                ? 'bg-[#7b2cbf]/5 text-[#1f1a24] rounded-tr-sm border border-[#7b2cbf]/10'
-                                : 'bg-white/[0.025] text-zinc-100 rounded-tr-sm border border-white/[0.04]' 
-                              : theme === 'light'
-                                ? 'bg-transparent text-[#2c2438] prose prose-p:leading-relaxed prose-pre:bg-[#f3eff7] prose-pre:border prose-pre:border-[#7b2cbf]/10 max-w-none'
-                                : 'bg-transparent text-zinc-300 prose prose-invert prose-p:leading-relaxed prose-pre:bg-[#060408] prose-pre:border prose-pre:border-white/[0.05] max-w-none'
-                          }`}>
-                            {m.role === 'assistant' ? (
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-                            ) : (
-                              <div className="space-y-3 w-full">
-                                {/* Image preview thumbnail inside bubble */}
-                                {m.image_url && (
-                                  <img 
-                                    src={m.image_url} 
-                                    alt="Uploaded Image" 
-                                    className="max-h-60 rounded-lg border border-white/10 shadow-lg object-contain"
-                                  />
-                                )}
-                                
-                                {editingIdx === i ? (
-                                  <div className="w-full min-w-[240px] sm:min-w-[400px] mt-2 space-y-3 text-left">
-                                    <textarea
-                                      value={editText}
-                                      onChange={(e) => setEditText(e.target.value)}
-                                      className="w-full p-3 rounded-xl text-[14.5px] leading-relaxed border focus-visible:ring-1 focus-visible:ring-[#7b2cbf]/50 focus:border-[#7b2cbf]/50 bg-black/45 text-white border-white/[0.08]"
-                                      rows={3}
-                                    />
-                                    <div className="flex gap-2 justify-end">
-                                      <button
-                                        onClick={() => setEditingIdx(null)}
-                                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-zinc-400 border border-white/5 transition-all"
-                                      >
-                                        Cancel
-                                      </button>
-                                      <button
-                                        onClick={() => handleSaveAndResubmit(i)}
-                                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] hover:from-[#7b2cbf] hover:to-[#c084fc] text-white border border-[#c084fc]/30 shadow-lg shadow-[#7b2cbf]/10 transition-all flex items-center gap-1"
-                                      >
-                                        Save & Submit
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <span className="whitespace-pre-wrap">{m.content}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-  
-                          {/* Premium Bottom Action Row */}
-                          {m.role === 'assistant' && (
-                            <div className="flex flex-wrap items-center gap-2.5 mt-3 px-1 w-full justify-start">
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(m.content);
-                                  setCopiedIdx(i);
-                                  setTimeout(() => setCopiedIdx(null), 2000);
-                                }}
-                                className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                          {editingMsgIdx === i ? (
+                            <div className="flex flex-col gap-3 w-full min-w-[260px] sm:min-w-[400px] mt-2 text-left">
+                              <textarea
+                                value={editInput}
+                                onChange={(e) => setEditInput(e.target.value)}
+                                className={`w-full p-4 rounded-2xl text-[14.5px] leading-relaxed resize-none focus:outline-none border font-light ${
                                   theme === 'light'
-                                    ? copiedIdx === i
-                                      ? 'bg-green-500/10 border-green-500/20 text-green-600'
-                                      : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
-                                    : copiedIdx === i
-                                      ? 'bg-green-500/20 border-green-500/30 text-green-300'
-                                      : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
+                                    ? 'bg-zinc-50 border-zinc-200 text-[#1f1a24] focus:border-[#7b2cbf]/50 focus:ring-1 focus:ring-[#7b2cbf]/50'
+                                    : 'bg-white/[0.02] border-white/[0.08] text-zinc-100 focus:border-[#c084fc]/30 focus:ring-1 focus:ring-[#c084fc]/30'
                                 }`}
-                                title="Copy response to clipboard"
-                              >
-                                {copiedIdx === i ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5 text-green-500" />
-                                    <span>Copied!</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3.5 h-3.5" />
-                                    <span>Copy</span>
-                                  </>
-                                )}
-                              </button>
-  
-                              <button
-                                onClick={() => handleSpeakMessage(m.content, i)}
-                                className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
-                                  theme === 'light'
-                                    ? speakingIdx === i
-                                      ? 'bg-red-500/10 border-red-500/20 text-red-600 hover:bg-red-500/20'
-                                      : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
-                                    : speakingIdx === i
-                                      ? 'bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30'
-                                      : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
-                                }`}
-                                title={speakingIdx === i ? "Stop Speaking" : "Listen to Response"}
-                              >
-                                {speakingIdx === i ? (
-                                  <>
-                                    <Square className="w-3.5 h-3.5 animate-pulse text-red-500" />
-                                    <span>Stop Voice</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Volume2 className="w-3.5 h-3.5" />
-                                    <span>Speak</span>
-                                  </>
-                                )}
-                              </button>
-  
-                              {isExportRequested && (
+                                rows={3}
+                              />
+                              <div className="flex items-center justify-end gap-2.5">
                                 <button
-                                  onClick={() => handleOpenExportWorkspace(m.content)}
-                                  className={`px-4 py-2 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-2 shadow-lg hover:shadow-[#7b2cbf]/10 ${
+                                  onClick={() => {
+                                    setEditingMsgIdx(null);
+                                    setEditInput("");
+                                  }}
+                                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-95 border ${
                                     theme === 'light'
-                                      ? 'bg-[#7b2cbf] border-[#7b2cbf]/20 text-white hover:bg-[#8f3ad6] hover:scale-[1.02]'
-                                      : 'bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] border-[#7b2cbf]/40 text-white hover:brightness-110 hover:scale-[1.02]'
+                                      ? 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700'
+                                      : 'bg-white/[0.02] hover:bg-white/[0.06] border-white/[0.08] text-zinc-400 hover:text-white'
                                   }`}
-                                  title="Export Document as PDF, DOCX, or TXT"
                                 >
-                                  <FileText className="w-4 h-4 text-white" />
-                                  <span>Export PDF / DOCX</span>
+                                  Cancel
                                 </button>
-                              )}
+                                <button
+                                  onClick={() => handleSaveEdit(i)}
+                                  disabled={!editInput.trim() || loading}
+                                  className="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-95 bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] text-white hover:brightness-110 disabled:opacity-50 border border-[#c084fc]/35 shadow-lg"
+                                >
+                                  Save & Submit
+                                </button>
+                              </div>
                             </div>
+                          ) : (
+                            <>
+                              {/* Header: User name and voice speak icon */}
+                              <div className="flex items-center gap-3 mb-1.5 px-1 text-[11px] font-semibold text-zinc-500 tracking-wider">
+                                <span>{m.role === 'user' ? getFriendlyName(displayName) : 'TAXA'}</span>
+                                {m.role === 'assistant' && (
+                                  <div className="flex items-center gap-2 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                                    <button 
+                                      onClick={() => handleSpeakMessage(m.content, i)}
+                                      className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                        theme === 'light'
+                                          ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
+                                          : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
+                                      }`}
+                                      title={speakingIdx === i ? "Stop Chisel Voice" : "Chisel Voice"}
+                                    >
+                                      {speakingIdx === i ? <Square className="w-5 h-5 animate-pulse text-red-400" /> : <Volume2 className="w-5 h-5" />}
+                                    </button>
+                                    {isExportRequested && (
+                                      <button 
+                                        onClick={() => handleOpenExportWorkspace(m.content)}
+                                        className={`p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                                          theme === 'light'
+                                            ? 'bg-black/[0.02] hover:bg-[#7b2cbf]/5 border-black/[0.04] text-zinc-500 hover:text-[#7b2cbf]'
+                                            : 'bg-white/[0.02] hover:bg-[#7b2cbf]/10 border-white/[0.04] text-zinc-400 hover:text-[#c084fc]'
+                                        }`}
+                                        title="Export Document (PDF/DOCX)"
+                                      >
+                                        <FileText className="w-5 h-5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Message Body Content */}
+                              <div className={`p-4 sm:p-5 rounded-2xl text-[14.5px] leading-relaxed shadow-sm text-left ${
+                                m.role === 'user' 
+                                  ? theme === 'light'
+                                    ? 'bg-[#7b2cbf]/5 text-[#1f1a24] rounded-tr-sm border border-[#7b2cbf]/10'
+                                    : 'bg-white/[0.025] text-zinc-100 rounded-tr-sm border border-white/[0.04]' 
+                                  : theme === 'light'
+                                    ? 'bg-transparent text-[#2c2438] prose prose-p:leading-relaxed prose-pre:bg-[#f3eff7] prose-pre:border prose-pre:border-[#7b2cbf]/10 max-w-none'
+                                    : 'bg-transparent text-zinc-300 prose prose-invert prose-p:leading-relaxed prose-pre:bg-[#060408] prose-pre:border prose-pre:border-white/[0.05] max-w-none'
+                              }`}>
+                                {m.role === 'assistant' ? (
+                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {/* Image preview thumbnail inside bubble */}
+                                    {m.image_url && (
+                                      <img 
+                                        src={m.image_url} 
+                                        alt="Uploaded Image" 
+                                        className="max-h-60 rounded-lg border border-white/10 shadow-lg object-contain"
+                                      />
+                                    )}
+                                    <span className="whitespace-pre-wrap">{m.content}</span>
+                                  </div>
+                                )}
+                              </div>
+      
+                              {/* Premium Bottom Action Row */}
+                              {m.role === 'assistant' && (
+                                <div className="flex flex-wrap items-center gap-2.5 mt-3 px-1 w-full justify-start">
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(m.content);
+                                      setCopiedIdx(i);
+                                      setTimeout(() => setCopiedIdx(null), 2000);
+                                    }}
+                                    className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                                      theme === 'light'
+                                        ? copiedIdx === i
+                                          ? 'bg-green-500/10 border-green-500/20 text-green-600'
+                                          : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
+                                        : copiedIdx === i
+                                          ? 'bg-green-500/20 border-green-500/30 text-green-300'
+                                          : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
+                                    }`}
+                                    title="Copy response to clipboard"
+                                  >
+                                    {copiedIdx === i ? (
+                                      <>
+                                        <Check className="w-3.5 h-3.5 text-green-500" />
+                                        <span>Copied!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3.5 h-3.5" />
+                                        <span>Copy</span>
+                                      </>
+                                    )}
+                                  </button>
+      
+                                  <button
+                                    onClick={() => handleSpeakMessage(m.content, i)}
+                                    className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                                      theme === 'light'
+                                        ? speakingIdx === i
+                                          ? 'bg-red-500/10 border-red-500/20 text-red-600 hover:bg-red-500/20'
+                                          : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
+                                        : speakingIdx === i
+                                          ? 'bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30'
+                                          : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
+                                    }`}
+                                    title={speakingIdx === i ? "Stop Speaking" : "Listen to Response"}
+                                  >
+                                    {speakingIdx === i ? (
+                                      <>
+                                        <Square className="w-3.5 h-3.5 animate-pulse text-red-500" />
+                                        <span>Stop Voice</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Volume2 className="w-3.5 h-3.5" />
+                                        <span>Speak</span>
+                                      </>
+                                    )}
+                                  </button>
+
+                                  {/* Regenerate/Refresh Button */}
+                                  {i > 0 && messages[i - 1].role === "user" && (
+                                    <button
+                                      onClick={() => handleRegenerate(i)}
+                                      className={`px-3 py-1.5 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                                        theme === 'light'
+                                          ? 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:scale-[1.02]'
+                                          : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-zinc-300 hover:scale-[1.02]'
+                                      }`}
+                                      title="Regenerate TAXA Response"
+                                    >
+                                      <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                                      <span>Refresh</span>
+                                    </button>
+                                  )}
+      
+                                  {isExportRequested && (
+                                    <button
+                                      onClick={() => handleOpenExportWorkspace(m.content)}
+                                      className={`px-4 py-2 rounded-full border text-xs font-bold tracking-wide transition-all active:scale-95 flex items-center gap-2 shadow-lg hover:shadow-[#7b2cbf]/10 ${
+                                        theme === 'light'
+                                          ? 'bg-[#7b2cbf] border-[#7b2cbf]/20 text-white hover:bg-[#8f3ad6] hover:scale-[1.02]'
+                                          : 'bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] border-[#7b2cbf]/40 text-white hover:brightness-110 hover:scale-[1.02]'
+                                      }`}
+                                      title="Export Document as PDF, DOCX, or TXT"
+                                    >
+                                      <FileText className="w-4 h-4 text-white" />
+                                      <span>Export PDF / DOCX</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* User Message Action Row */}
+                              {m.role === 'user' && (
+                                <div className="flex items-center gap-2 mt-2 px-1 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(m.content);
+                                      setCopiedIdx(i);
+                                      setTimeout(() => setCopiedIdx(null), 2000);
+                                    }}
+                                    className={`px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1 shadow-sm ${
+                                      theme === 'light'
+                                        ? copiedIdx === i
+                                          ? 'bg-green-500/10 border-green-500/20 text-green-600'
+                                          : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-500'
+                                        : copiedIdx === i
+                                          ? 'bg-green-500/20 border-green-500/30 text-green-300'
+                                          : 'bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.06] text-zinc-400 hover:text-white'
+                                    }`}
+                                    title="Copy prompt to clipboard"
+                                  >
+                                    {copiedIdx === i ? (
+                                      <>
+                                        <Check className="w-3 h-3 text-green-500" />
+                                        <span>Copied!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>Copy</span>
+                                      </>
+                                    )}
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setEditingMsgIdx(i);
+                                      setEditInput(m.content);
+                                    }}
+                                    className={`px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-wide transition-all active:scale-95 flex items-center gap-1 shadow-sm ${
+                                      theme === 'light'
+                                        ? 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-500'
+                                        : 'bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.06] text-zinc-400 hover:text-white'
+                                    }`}
+                                    title="Edit prompt"
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                    <span>Edit</span>
+                                  </button>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </motion.div>
