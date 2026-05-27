@@ -122,6 +122,34 @@ async def google_login(payload: GoogleLoginRequest, database: Session = Depends(
     access_token = auth.create_access_token(data={"sub": db_user.username})
     return {"access_token": access_token, "token_type": "bearer", "username": db_user.username}
 
+class QuickLoginRequest(BaseModel):
+    name: str
+
+@app.post("/api/quick-login", response_model=Token)
+async def quick_login(payload: QuickLoginRequest, database: Session = Depends(get_db)):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty.")
+    
+    # Generate a secure slugified username from the name
+    import re
+    username = re.sub(r'[^a-zA-Z0-9_]', '', name.lower().replace(' ', '_'))
+    if not username:
+        username = "guest_" + os.urandom(4).hex()
+        
+    db_user = database.query(db.UserModel).filter(db.UserModel.username == username).first()
+    if not db_user:
+        # Create a new user with a silent, secure random password hash
+        hashed_password = auth.get_password_hash("quick_auth_" + os.urandom(8).hex())
+        db_user = db.UserModel(username=username, password_hash=hashed_password)
+        database.add(db_user)
+        database.commit()
+        database.refresh(db_user)
+        
+    access_token = auth.create_access_token(data={"sub": db_user.username})
+    return {"access_token": access_token, "token_type": "bearer", "username": db_user.username}
+
+
 class SessionResponse(BaseModel):
     id: str
     title: str
