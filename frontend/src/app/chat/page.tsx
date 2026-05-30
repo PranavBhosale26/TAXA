@@ -264,16 +264,24 @@ export default function ChatPage() {
         if (res.ok) {
           const data = await res.json();
           setSessions(data);
+          // Attempt to restore the last active session from localStorage if it exists in the fetched sessions list
+          const savedSessionId = localStorage.getItem("omnimind_current_session_id");
+          const sessionExists = data.some((s: Session) => s.id === savedSessionId);
           
-          // Generate a fresh session to start
-          const newSessionId = generateSessionId();
-          setCurrentSessionId(newSessionId);
-          setMessages([
-            { 
-              role: "assistant", 
-              content: `Welcome to your data workshop, **${getFriendlyName(savedDisplayName || user)}**. I am **TAXA**.` 
-            }
-          ]);
+          if (savedSessionId && sessionExists) {
+            loadSession(savedSessionId);
+          } else {
+            // Generate a fresh session to start
+            const newSessionId = generateSessionId();
+            setCurrentSessionId(newSessionId);
+            localStorage.setItem("omnimind_current_session_id", newSessionId);
+            setMessages([
+              { 
+                role: "assistant", 
+                content: `Welcome to your data workshop, **${getFriendlyName(savedDisplayName || user)}**. I am **TAXA**.` 
+              }
+            ]);
+          }
         } else if (res.status === 401 || res.status === 403) {
           localStorage.removeItem("omnimind_token");
           localStorage.removeItem("omnimind_user");
@@ -290,6 +298,7 @@ export default function ChatPage() {
   // Load an existing session
   const loadSession = async (sessionId: string) => {
     setCurrentSessionId(sessionId);
+    localStorage.setItem("omnimind_current_session_id", sessionId);
     setSearchQuery(""); // Clear search to see active item
     setIsSidebarOpen(false); // Close sidebar on mobile
     try {
@@ -364,6 +373,7 @@ export default function ChatPage() {
   const createNewChat = () => {
     const newId = generateSessionId();
     setCurrentSessionId(newId);
+    localStorage.setItem("omnimind_current_session_id", newId);
     setMessages([
       { 
         role: "assistant", 
@@ -541,7 +551,8 @@ export default function ChatPage() {
     // Strip massive base64 image data from historical messages to prevent huge payload transport lag
     const cleanedHistory = messages.map(m => ({
       role: m.role,
-      content: m.content
+      content: m.content,
+      image_url: m.image_url
     }));
 
     try {
@@ -905,7 +916,8 @@ export default function ChatPage() {
       
       const cleanedHistory = updatedMessages.map(m => ({
         role: m.role,
-        content: m.content
+        content: m.content,
+        image_url: m.image_url
       }));
       
       const res = await fetch(`${apiBaseUrl}/api/chat`, {
@@ -981,7 +993,8 @@ export default function ChatPage() {
       
       const cleanedHistory = historicalMessages.map(m => ({
         role: m.role,
-        content: m.content
+        content: m.content,
+        image_url: m.image_url
       }));
       
       const res = await fetch(`${apiBaseUrl}/api/chat`, {
@@ -1276,6 +1289,7 @@ export default function ChatPage() {
     localStorage.removeItem("omnimind_token");
     localStorage.removeItem("omnimind_user");
     localStorage.removeItem("omnimind_display_name");
+    localStorage.removeItem("omnimind_current_session_id");
     router.push("/login");
   };
 

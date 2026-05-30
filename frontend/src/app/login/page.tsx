@@ -129,115 +129,123 @@ export default function LoginPage() {
         <div className="absolute inset-0 -z-10 rounded-3xl p-[1px] bg-gradient-to-br from-white/[0.05] via-transparent to-[#7b2cbf]/25" />
         
         {/* Secure TLS Link Badge */}
-        <div className="mb-6 p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-between text-left">
+        <div className={`mb-6 p-3 rounded-2xl border flex items-center justify-between text-left transition-all duration-300 ${
+          backendReady === true 
+            ? "bg-emerald-500/5 border-emerald-500/10" 
+            : backendReady === false 
+              ? "bg-amber-500/5 border-amber-500/10" 
+              : "bg-purple-500/5 border-purple-500/10"
+        }`}>
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                backendReady === true 
+                  ? "bg-emerald-400" 
+                  : backendReady === false 
+                    ? "bg-amber-400" 
+                    : "bg-purple-400"
+              }`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                backendReady === true 
+                  ? "bg-emerald-500" 
+                  : backendReady === false 
+                    ? "bg-amber-500" 
+                    : "bg-purple-500"
+              }`}></span>
             </span>
-            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">TLS 1.3 Link Active</span>
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${
+              backendReady === true 
+                ? "text-emerald-400" 
+                : backendReady === false 
+                  ? "text-amber-400" 
+                  : "text-purple-400"
+            }`}>
+              {backendReady === true 
+                ? "TLS 1.3 Link Active" 
+                : backendReady === false 
+                  ? "TAXA Core Waking Up..." 
+                  : "Establishing secure link..."}
+            </span>
           </div>
           <span className="text-[8.5px] font-mono text-zinc-500">AES-256-GCM / SQLite-v3</span>
         </div>
 
-        {backendReady !== true ? (
-          /* Premium Boot loader overlay for cold starting Render containers */
-          <div className="flex flex-col items-center justify-center py-10 text-center select-none animate-in fade-in duration-500">
-            {/* Pulsing circular visualizer */}
-            <div className="relative w-28 h-28 mb-8 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-[#7b2cbf]/10 blur-xl animate-pulse"></div>
-              <div className="absolute w-24 h-24 rounded-full border border-dashed border-[#7b2cbf]/20 animate-spin" style={{ animationDuration: '6s' }}></div>
-              <div className="absolute w-18 h-18 rounded-full border border-dotted border-[#c084fc]/30 animate-spin" style={{ animationDuration: '3s', animationDirection: 'reverse' }}></div>
-              <div className="absolute w-12 h-12 rounded-full bg-gradient-to-tr from-[#7b2cbf] to-[#c084fc] shadow-[0_0_20px_rgba(123,44,191,0.5)] flex items-center justify-center">
-                <RefreshCw className="w-5 h-5 text-white animate-spin" style={{ animationDuration: '2.5s' }} />
-              </div>
-            </div>
+        {/* Diamond Logo Branding */}
+        <div className="flex flex-col items-center mb-8 select-none">
+          <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#7b2cbf] to-[#9d4edd] text-white flex items-center justify-center mb-5 shadow-[0_0_25px_rgba(157,78,221,0.4)] border border-[#e0aaff]/20">
+            <Cpu className="w-6.5 h-6.5 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-1.5 uppercase">
+            Welcome to TAXA
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-400 mt-2 text-center font-light leading-relaxed">
+            Enter your name to access your professional AI workspace.
+          </p>
+        </div>
 
-            <h3 className="text-sm font-bold text-white tracking-widest uppercase mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#c084fc] animate-ping shrink-0"></span>
-              {backendReady === null ? "Initializing Secure Link..." : "Waking up TAXA Cores..."}
-            </h3>
-            <p className="text-xs text-zinc-400 font-light leading-relaxed max-w-xs">
-              {backendReady === null 
-                ? "Establishing connection to the secure AI portal. Standby..." 
-                : "The server is sleeping. Render's free tier takes up to 45 seconds to boot up. We are auto-connecting, please hold..."}
-            </p>
-            
-            <div className="mt-8 px-4 py-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-              Status: Connecting...
+        {/* Non-blocking server sleep/offline alert */}
+        {backendReady === false && (
+          <div className="mb-6 p-4 rounded-xl bg-amber-950/20 border border-amber-500/20 text-amber-400 text-xs text-left flex items-start gap-3.5 font-light animate-in fade-in duration-300">
+            <RefreshCw className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 animate-spin" style={{ animationDuration: '3s' }} />
+            <div>
+              <p className="font-semibold uppercase tracking-wider text-[10px] mb-1">Server sleeping</p>
+              <p className="leading-relaxed">The TAXA engine is currently sleeping. Render's free tier takes up to 45 seconds to spin up. Auto-connecting in the background, please standby...</p>
             </div>
           </div>
-        ) : (
-          /* Normal Form Entry Content */
-          <>
-            {/* Diamond Logo Branding */}
-            <div className="flex flex-col items-center mb-8">
-              <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#7b2cbf] to-[#9d4edd] text-white flex items-center justify-center mb-5 shadow-[0_0_25px_rgba(157,78,221,0.4)] border border-[#e0aaff]/20">
-                <Cpu className="w-6.5 h-6.5 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-1.5 uppercase">
-                Welcome to TAXA
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-2 text-center font-light leading-relaxed">
-                Enter your name to access your professional AI workspace.
-              </p>
-            </div>
-
-            {/* Beautiful Animated Error Panel */}
-            <AnimatePresence mode="wait">
-              {error && (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="mb-6 p-4 rounded-xl bg-red-950/20 border border-red-500/25 text-red-400 text-xs sm:text-sm text-left flex items-start gap-3.5 font-light"
-                >
-                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                  <span>{error}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Name Field */}
-              <div className="space-y-2 text-left">
-                <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-[#c084fc]" /> Your Name
-                </label>
-                <Input 
-                  name="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Pranav Bhosale"
-                  className="bg-black/45 border-white/[0.07] text-white placeholder:text-zinc-600 focus-visible:ring-[#7b2cbf]/50 focus:border-[#7b2cbf]/50 h-12 rounded-xl transition-all font-light"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              {/* Interactive Action Button */}
-              <Button 
-                type="submit" 
-                disabled={loading} 
-                className="w-full bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] hover:from-[#7b2cbf] hover:to-[#c084fc] text-white font-semibold tracking-wide mt-6 h-12 rounded-xl shadow-[0_0_20px_rgba(157,78,221,0.2)] transition-transform active:scale-[0.98] border border-[#c084fc]/30 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
-                    Initializing Workspace...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    Enter Workspace
-                    <ArrowRight className="w-4 h-4" />
-                  </span>
-                )}
-              </Button>
-            </form>
-          </>
         )}
+
+        {/* Beautiful Animated Error Panel */}
+        <AnimatePresence mode="wait">
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="mb-6 p-4 rounded-xl bg-red-950/20 border border-red-500/25 text-red-400 text-xs sm:text-sm text-left flex items-start gap-3.5 font-light"
+            >
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Name Field */}
+          <div className="space-y-2 text-left">
+            <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-[#c084fc]" /> Your Name
+            </label>
+            <Input 
+              name="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Pranav Bhosale"
+              className="bg-black/45 border-white/[0.07] text-white placeholder:text-zinc-600 focus-visible:ring-[#7b2cbf]/50 focus:border-[#7b2cbf]/50 h-12 rounded-xl transition-all font-light"
+              required
+              autoFocus
+            />
+          </div>
+
+          {/* Interactive Action Button */}
+          <Button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full bg-gradient-to-r from-[#7b2cbf] to-[#9d4edd] hover:from-[#7b2cbf] hover:to-[#c084fc] text-white font-semibold tracking-wide mt-6 h-12 rounded-xl shadow-[0_0_20px_rgba(157,78,221,0.2)] transition-transform active:scale-[0.98] border border-[#c084fc]/30 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
+                Initializing Workspace...
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                Enter Workspace
+                <ArrowRight className="w-4 h-4" />
+              </span>
+            )}
+          </Button>
+        </form>
       </motion.div>
 
       {/* Bottom Security Badge */}
